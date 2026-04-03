@@ -1,0 +1,7 @@
+{
+  "id": "chatcmpl-abc123",
+  "object": "chat.completion.chunk",
+  "created": 1712345678,
+  "model": "openai/gpt-4o-mini",
+  "choices": [{"index": 0, "delta": {"role": "assistant", "content": "Hello"}, "finish_reason": null}]
+}

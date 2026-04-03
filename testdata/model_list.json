@@ -1,0 +1,6 @@
+[
+  {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "context_length": 128000, "is_free": false,
+   "pricing": {"prompt_usd_per_1k": "0.000150", "completion_usd_per_1k": "0.000600"}},
+  {"id": "meta-llama/llama-3.3-70b-instruct:free", "name": "Llama 3.3 70B (free)", "context_length": 131072, "is_free": true,
+   "pricing": {"prompt_usd_per_1k": "0", "completion_usd_per_1k": "0"}}
+]
