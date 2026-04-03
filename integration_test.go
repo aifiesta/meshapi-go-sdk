@@ -18,7 +18,7 @@ func integrationClient(t *testing.T) *Client {
 	if token == "" {
 		token = "rsk_01KN96KQWDPF2X1E9CP8567JY4"
 	}
-	return NewClient(Config{BaseURL: baseURL, Token: token})
+	return New(Config{BaseURL: baseURL, Token: token})
 }
 
 func TestIntegration_ModelsList(t *testing.T) {

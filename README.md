@@ -20,7 +20,7 @@ go get github.com/yourorg/meshapi-go-sdk@v0.1.0
 ```go
 import "meshapi-go-sdk"
 
-client := meshapi.NewClient(meshapi.Config{
+client := meshapi.New(meshapi.Config{
     BaseURL: "http://localhost:8000",
     Token:   "rsk_...",
 })
@@ -72,7 +72,7 @@ Retries on 429/502/503/504 with exponential backoff (default 3 retries, 500 ms b
 
 ```go
 maxRetries := 5
-client := meshapi.NewClient(meshapi.Config{
+client := meshapi.New(meshapi.Config{
     MaxRetries: &maxRetries,
 })
 ```

@@ -52,16 +52,16 @@ func (c Config) maxRetries() int {
 //
 // One instance = one auth realm. Use separate instances for different tokens:
 //
-//	inferenceClient := meshapi.NewClient(meshapi.Config{Token: "rsk_..."})
-//	mgmtClient      := meshapi.NewClient(meshapi.Config{Token: "<jwt>"})
+//	inferenceClient := meshapi.New(meshapi.Config{Token: "rsk_..."})
+//	mgmtClient      := meshapi.New(meshapi.Config{Token: "<jwt>"})
 type Client struct {
 	Chat      *ChatResource
 	Models    *ModelsResource
 	Templates *TemplatesResource
 }
 
-// NewClient creates a new MeshAPI client with the given configuration.
-func NewClient(cfg Config) *Client {
+// New creates a new MeshAPI client with the given configuration.
+func New(cfg Config) *Client {
 	http := newHTTPClient(cfg)
 	return &Client{
 		Chat: &ChatResource{
