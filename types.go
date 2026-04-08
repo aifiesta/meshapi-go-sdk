@@ -218,3 +218,61 @@ type TemplateSummary struct {
 	CreatedAt   string                   `json:"created_at"`
 	UpdatedAt   string                   `json:"updated_at"`
 }
+
+// ---------------------------------------------------------------------------
+// Responses
+// ---------------------------------------------------------------------------
+
+// ReasoningConfig controls chain-of-thought depth for supported models.
+type ReasoningConfig struct {
+	Effort string `json:"effort"` // "minimal" | "low" | "medium" | "high"
+}
+
+// ResponsesParams is the request body for POST /v1/responses.
+type ResponsesParams struct {
+	Input           interface{}      `json:"input"`                     // string or []ChatMessage (required)
+	Model           *string          `json:"model,omitempty"`
+	Stream          *bool            `json:"stream,omitempty"`
+	SessionID       *string          `json:"session_id,omitempty"`
+	MaxOutputTokens *int             `json:"max_output_tokens,omitempty"`
+	Temperature     *float64         `json:"temperature,omitempty"`
+	TopP            *float64         `json:"top_p,omitempty"`
+	Seed            *int             `json:"seed,omitempty"`
+	Reasoning       *ReasoningConfig `json:"reasoning,omitempty"`
+	Tools           []Tool           `json:"tools,omitempty"`
+	ToolChoice      interface{}      `json:"tool_choice,omitempty"`
+	ResponseFormat  interface{}      `json:"response_format,omitempty"`
+	Plugins         []interface{}    `json:"plugins,omitempty"`
+	User            *string          `json:"user,omitempty"`
+}
+
+// ResponsesMessageReasoning holds the reasoning trace returned by the model.
+type ResponsesMessageReasoning struct {
+	EncryptedContent *string `json:"encrypted_content,omitempty"`
+	Summary          *string `json:"summary,omitempty"`
+}
+
+// ResponsesMessage is the assistant message in a Responses API result.
+type ResponsesMessage struct {
+	Role      string                     `json:"role"`
+	Content   *string                    `json:"content,omitempty"`
+	ToolCalls []ToolCall                 `json:"tool_calls,omitempty"`
+	Reasoning *ResponsesMessageReasoning `json:"reasoning,omitempty"`
+}
+
+// ResponsesChoice is one result choice in a Responses API response.
+type ResponsesChoice struct {
+	Index        int               `json:"index"`
+	Message      *ResponsesMessage `json:"message,omitempty"`
+	FinishReason *string           `json:"finish_reason,omitempty"`
+}
+
+// ResponsesResponse is the full non-streaming response body for POST /v1/responses.
+type ResponsesResponse struct {
+	ID      string            `json:"id"`
+	Object  string            `json:"object"`
+	Created int64             `json:"created"`
+	Model   string            `json:"model"`
+	Choices []ResponsesChoice `json:"choices"`
+	Usage   *UsageInfo        `json:"usage,omitempty"`
+}

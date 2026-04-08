@@ -91,6 +91,47 @@ func TestIntegration_ChatStream(t *testing.T) {
 	t.Logf("received %d chunks", count)
 }
 
+func TestIntegration_ResponsesCreate(t *testing.T) {
+	client := integrationClient(t)
+	ctx := context.Background()
+	model := "openai/o4-mini"
+	resp, err := client.Responses.Create(ctx, ResponsesParams{
+		Model:     &model,
+		Input:     "What is 2 + 2?",
+		Reasoning: &ReasoningConfig{Effort: "low"},
+	})
+	if err != nil {
+		t.Fatalf("responses create: %v", err)
+	}
+	if resp.ID == "" {
+		t.Error("empty response ID")
+	}
+	if len(resp.Choices) == 0 {
+		t.Error("no choices")
+	}
+}
+
+func TestIntegration_ResponsesStream(t *testing.T) {
+	client := integrationClient(t)
+	ctx := context.Background()
+	model := "openai/o4-mini"
+	chunkCh, errCh := client.Responses.Stream(ctx, ResponsesParams{
+		Model: &model,
+		Input: []ChatMessage{{Role: "user", Content: "Count 1 to 3."}},
+	})
+	var count int
+	for range chunkCh {
+		count++
+	}
+	if err := <-errCh; err != nil {
+		t.Fatalf("stream error: %v", err)
+	}
+	if count == 0 {
+		t.Error("expected at least one chunk")
+	}
+	t.Logf("received %d chunks", count)
+}
+
 func TestIntegration_TemplatesCRUD(t *testing.T) {
 	client := integrationClient(t)
 	ctx := context.Background()

@@ -1,0 +1,21 @@
+{
+  "id": "resp-xyz789",
+  "object": "chat.completion",
+  "created": 1700000001,
+  "model": "openai/o4-mini",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "The halting problem is undecidable.",
+        "reasoning": {
+          "encrypted_content": null,
+          "summary": "I considered Turing's proof by contradiction."
+        }
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": { "prompt_tokens": 20, "completion_tokens": 30, "total_tokens": 50 }
+}
