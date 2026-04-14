@@ -149,6 +149,34 @@ type ChatCompletionChunk struct {
 	Cost    *string                     `json:"cost,omitempty"`
 }
 
+// ResponsesChunkDelta is the partial content in a Responses API streaming chunk.
+// Unlike ChatCompletionChunkDelta it carries a Reasoning field for models that
+// emit chain-of-thought tokens (e.g. openai/o4-mini).
+type ResponsesChunkDelta struct {
+	Role      *string                    `json:"role,omitempty"`
+	Content   *string                    `json:"content,omitempty"`
+	ToolCalls []ToolCall                 `json:"tool_calls,omitempty"`
+	Reasoning *ResponsesMessageReasoning `json:"reasoning,omitempty"`
+}
+
+// ResponsesChunkChoice is one choice in a Responses API streaming chunk.
+type ResponsesChunkChoice struct {
+	Index        int                  `json:"index"`
+	Delta        *ResponsesChunkDelta `json:"delta,omitempty"`
+	FinishReason *string              `json:"finish_reason,omitempty"`
+}
+
+// ResponsesChunk is a single SSE chunk in a streaming Responses API response.
+type ResponsesChunk struct {
+	ID      string                 `json:"id"`
+	Object  string                 `json:"object"`
+	Created int64                  `json:"created"`
+	Model   string                 `json:"model"`
+	Choices []ResponsesChunkChoice `json:"choices"`
+	Usage   *UsageInfo             `json:"usage,omitempty"`
+	Cost    *string                `json:"cost,omitempty"`
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -217,4 +245,63 @@ type TemplateSummary struct {
 	Variables   []string                 `json:"variables,omitempty"`
 	CreatedAt   string                   `json:"created_at"`
 	UpdatedAt   string                   `json:"updated_at"`
+}
+
+// ---------------------------------------------------------------------------
+// Responses
+// ---------------------------------------------------------------------------
+
+// ReasoningConfig controls chain-of-thought depth for supported models.
+type ReasoningConfig struct {
+	Effort string `json:"effort"` // "minimal" | "low" | "medium" | "high"
+}
+
+// ResponsesParams is the request body for POST /v1/responses.
+type ResponsesParams struct {
+	Input           interface{}      `json:"input"`                     // string or []ChatMessage (required)
+	Model           *string          `json:"model,omitempty"`
+	Stream          *bool            `json:"stream,omitempty"`
+	SessionID       *string          `json:"session_id,omitempty"`
+	MaxOutputTokens *int             `json:"max_output_tokens,omitempty"`
+	Temperature     *float64         `json:"temperature,omitempty"`
+	TopP            *float64         `json:"top_p,omitempty"`
+	Seed            *int             `json:"seed,omitempty"`
+	Reasoning       *ReasoningConfig `json:"reasoning,omitempty"`
+	Tools           []Tool           `json:"tools,omitempty"`
+	ToolChoice      interface{}      `json:"tool_choice,omitempty"`
+	ResponseFormat  interface{}      `json:"response_format,omitempty"`
+	Plugins         []interface{}    `json:"plugins,omitempty"`
+	User            *string          `json:"user,omitempty"`
+}
+
+// ResponsesMessageReasoning holds the reasoning trace returned by the model.
+type ResponsesMessageReasoning struct {
+	EncryptedContent *string `json:"encrypted_content,omitempty"`
+	Summary          *string `json:"summary,omitempty"`
+}
+
+// ResponsesMessage is the assistant message in a Responses API result.
+type ResponsesMessage struct {
+	Role      string                     `json:"role"`
+	Content   *string                    `json:"content,omitempty"`
+	ToolCalls []ToolCall                 `json:"tool_calls,omitempty"`
+	Reasoning *ResponsesMessageReasoning `json:"reasoning,omitempty"`
+}
+
+// ResponsesChoice is one result choice in a Responses API response.
+type ResponsesChoice struct {
+	Index        int               `json:"index"`
+	Message      *ResponsesMessage `json:"message,omitempty"`
+	FinishReason *string           `json:"finish_reason,omitempty"`
+}
+
+// ResponsesResponse is the full non-streaming response body for POST /v1/responses.
+type ResponsesResponse struct {
+	ID                string            `json:"id"`
+	Object            string            `json:"object"`
+	Created           int64             `json:"created"`
+	Model             string            `json:"model"`
+	Choices           []ResponsesChoice `json:"choices"`
+	Usage             *UsageInfo        `json:"usage,omitempty"`
+	SystemFingerprint *string           `json:"system_fingerprint,omitempty"`
 }

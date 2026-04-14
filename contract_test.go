@@ -106,6 +106,48 @@ func TestContract_Error401(t *testing.T) {
 	}
 }
 
+func TestContract_ResponsesResponse(t *testing.T) {
+	data := loadFixture(t, "responses_response.json")
+	var resp ResponsesResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.ID != "resp-abc123" {
+		t.Errorf("expected id 'resp-abc123', got %q", resp.ID)
+	}
+	if len(resp.Choices) != 1 {
+		t.Fatalf("expected 1 choice, got %d", len(resp.Choices))
+	}
+	msg := resp.Choices[0].Message
+	if msg == nil || msg.Content == nil || *msg.Content != "2 + 2 equals 4." {
+		t.Errorf("unexpected message content: %v", msg)
+	}
+	if resp.Usage == nil || resp.Usage.TotalTokens != 18 {
+		t.Errorf("unexpected usage: %v", resp.Usage)
+	}
+}
+
+func TestContract_ResponsesResponseWithReasoning(t *testing.T) {
+	data := loadFixture(t, "responses_response_with_reasoning.json")
+	var resp ResponsesResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(resp.Choices) != 1 {
+		t.Fatalf("expected 1 choice, got %d", len(resp.Choices))
+	}
+	msg := resp.Choices[0].Message
+	if msg == nil || msg.Reasoning == nil {
+		t.Fatal("expected non-nil reasoning")
+	}
+	if msg.Reasoning.Summary == nil || *msg.Reasoning.Summary != "I considered Turing's proof by contradiction." {
+		t.Errorf("unexpected reasoning summary: %v", msg.Reasoning.Summary)
+	}
+	if msg.Reasoning.EncryptedContent != nil {
+		t.Errorf("expected nil encrypted_content, got %v", msg.Reasoning.EncryptedContent)
+	}
+}
+
 func TestContract_Error429WithRetryAfter(t *testing.T) {
 	data := loadFixture(t, "error_429.json")
 	var env apiErrorEnvelope

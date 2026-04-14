@@ -152,6 +152,80 @@ func TestParseSSEStream_DoneTerminates(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// parseSSEStreamOf[ResponsesChunk] — reasoning token tests
+// ---------------------------------------------------------------------------
+
+func makeResponsesReasoningFrame(summary string) string {
+	return fmt.Sprintf(
+		`data: {"id":"r","object":"responses.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"reasoning":{"summary":%q}},"finish_reason":null}]}`+"\n\n",
+		summary,
+	)
+}
+
+func collectResponsesChunks(resp *http.Response) ([]ResponsesChunk, error) {
+	chunkCh := make(chan ResponsesChunk)
+	errCh := make(chan error, 1)
+	go parseSSEStreamOf[ResponsesChunk](resp, chunkCh, errCh)
+
+	var chunks []ResponsesChunk
+	for chunk := range chunkCh {
+		chunks = append(chunks, chunk)
+	}
+	return chunks, <-errCh
+}
+
+func TestParseResponsesSSEStream_ReasoningChunk(t *testing.T) {
+	frames := []string{
+		makeResponsesReasoningFrame("step 1"),
+		makeResponsesReasoningFrame("step 2"),
+		"data: [DONE]\n\n",
+	}
+	resp := makeSSEBody(frames)
+	chunks, err := collectResponsesChunks(resp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(chunks) != 2 {
+		t.Fatalf("expected 2 chunks, got %d", len(chunks))
+	}
+	for i, want := range []string{"step 1", "step 2"} {
+		delta := chunks[i].Choices[0].Delta
+		if delta == nil || delta.Reasoning == nil || delta.Reasoning.Summary == nil {
+			t.Fatalf("chunk %d: expected reasoning.summary, got nil", i)
+		}
+		if *delta.Reasoning.Summary != want {
+			t.Errorf("chunk %d: expected %q, got %q", i, want, *delta.Reasoning.Summary)
+		}
+	}
+}
+
+func TestParseResponsesSSEStream_MixedReasoningAndContent(t *testing.T) {
+	contentFrame := fmt.Sprintf(
+		`data: {"id":"r","object":"responses.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":%q},"finish_reason":null}]}`+"\n\n",
+		"answer",
+	)
+	frames := []string{
+		makeResponsesReasoningFrame("thinking"),
+		contentFrame,
+		"data: [DONE]\n\n",
+	}
+	resp := makeSSEBody(frames)
+	chunks, err := collectResponsesChunks(resp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(chunks) != 2 {
+		t.Fatalf("expected 2 chunks, got %d", len(chunks))
+	}
+	if chunks[0].Choices[0].Delta == nil || chunks[0].Choices[0].Delta.Reasoning == nil {
+		t.Error("chunk 0: expected reasoning delta")
+	}
+	if chunks[1].Choices[0].Delta == nil || chunks[1].Choices[0].Delta.Content == nil {
+		t.Error("chunk 1: expected content delta")
+	}
+}
+
 func TestParseSSEStream_MidStreamError(t *testing.T) {
 	errorFrame := `data: {"error":{"code":"upstream_error","message":"Server died"}}` + "\n\n"
 	frames := []string{makeChunkFrame("Part1"), errorFrame}
