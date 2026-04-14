@@ -133,6 +133,9 @@ func TestContract_ResponsesResponseWithReasoning(t *testing.T) {
 	if err := json.Unmarshal(data, &resp); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
+	if len(resp.Choices) != 1 {
+		t.Fatalf("expected 1 choice, got %d", len(resp.Choices))
+	}
 	msg := resp.Choices[0].Message
 	if msg == nil || msg.Reasoning == nil {
 		t.Fatal("expected non-nil reasoning")

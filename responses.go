@@ -19,7 +19,9 @@ func (r *ResponsesResource) Create(ctx context.Context, params ResponsesParams) 
 }
 
 // Stream opens a streaming request. It returns two channels:
-//   - chunkCh: receives ChatCompletionChunks (identical SSE format to chat/completions)
+//   - chunkCh: receives ResponsesChunks; each chunk's Delta may carry a
+//     Reasoning field for models that emit chain-of-thought tokens (e.g.
+//     openai/o4-mini). Use ResponsesChunkDelta.Reasoning to surface those tokens.
 //   - errCh:   receives at most one error, then is closed
 //
 // Both channels are always closed when the stream ends. Callers must
@@ -27,11 +29,11 @@ func (r *ResponsesResource) Create(ctx context.Context, params ResponsesParams) 
 //
 // Streams are NEVER retried. On failure, catch the error from errCh and
 // restart a new Stream call if reconnection is needed.
-func (r *ResponsesResource) Stream(ctx context.Context, params ResponsesParams) (<-chan ChatCompletionChunk, <-chan error) {
+func (r *ResponsesResource) Stream(ctx context.Context, params ResponsesParams) (<-chan ResponsesChunk, <-chan error) {
 	t := true
 	params.Stream = &t
 
-	chunkCh := make(chan ChatCompletionChunk)
+	chunkCh := make(chan ResponsesChunk)
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -42,7 +44,7 @@ func (r *ResponsesResource) Stream(ctx context.Context, params ResponsesParams) 
 			close(errCh)
 			return
 		}
-		parseSSEStream(resp, chunkCh, errCh)
+		parseSSEStreamOf[ResponsesChunk](resp, chunkCh, errCh)
 	}()
 
 	return chunkCh, errCh

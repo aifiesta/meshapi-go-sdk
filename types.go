@@ -149,6 +149,34 @@ type ChatCompletionChunk struct {
 	Cost    *string                     `json:"cost,omitempty"`
 }
 
+// ResponsesChunkDelta is the partial content in a Responses API streaming chunk.
+// Unlike ChatCompletionChunkDelta it carries a Reasoning field for models that
+// emit chain-of-thought tokens (e.g. openai/o4-mini).
+type ResponsesChunkDelta struct {
+	Role      *string                    `json:"role,omitempty"`
+	Content   *string                    `json:"content,omitempty"`
+	ToolCalls []ToolCall                 `json:"tool_calls,omitempty"`
+	Reasoning *ResponsesMessageReasoning `json:"reasoning,omitempty"`
+}
+
+// ResponsesChunkChoice is one choice in a Responses API streaming chunk.
+type ResponsesChunkChoice struct {
+	Index        int                  `json:"index"`
+	Delta        *ResponsesChunkDelta `json:"delta,omitempty"`
+	FinishReason *string              `json:"finish_reason,omitempty"`
+}
+
+// ResponsesChunk is a single SSE chunk in a streaming Responses API response.
+type ResponsesChunk struct {
+	ID      string                 `json:"id"`
+	Object  string                 `json:"object"`
+	Created int64                  `json:"created"`
+	Model   string                 `json:"model"`
+	Choices []ResponsesChunkChoice `json:"choices"`
+	Usage   *UsageInfo             `json:"usage,omitempty"`
+	Cost    *string                `json:"cost,omitempty"`
+}
+
 // ---------------------------------------------------------------------------
 // Models
 // ---------------------------------------------------------------------------
@@ -269,10 +297,11 @@ type ResponsesChoice struct {
 
 // ResponsesResponse is the full non-streaming response body for POST /v1/responses.
 type ResponsesResponse struct {
-	ID      string            `json:"id"`
-	Object  string            `json:"object"`
-	Created int64             `json:"created"`
-	Model   string            `json:"model"`
-	Choices []ResponsesChoice `json:"choices"`
-	Usage   *UsageInfo        `json:"usage,omitempty"`
+	ID                string            `json:"id"`
+	Object            string            `json:"object"`
+	Created           int64             `json:"created"`
+	Model             string            `json:"model"`
+	Choices           []ResponsesChoice `json:"choices"`
+	Usage             *UsageInfo        `json:"usage,omitempty"`
+	SystemFingerprint *string           `json:"system_fingerprint,omitempty"`
 }
