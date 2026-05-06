@@ -2,6 +2,7 @@
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "pirate-assistant",
   "owner": "6088773a-147a-49d7-8ba4-1d9836cbe415",
+  "is_global": false,
   "description": "A pirate-themed assistant",
   "system": "You are a helpful assistant who speaks like a pirate.",
   "model": "openai/gpt-4o-mini",

@@ -178,6 +178,22 @@ func (h *httpClient) delete(ctx context.Context, path string) error {
 	return nil
 }
 
+func (h *httpClient) getBytes(ctx context.Context, path string, params url.Values) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.buildURL(path, params), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := h.do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return nil, newErrorFromResponse(resp)
+	}
+	return io.ReadAll(resp.Body)
+}
+
 func (h *httpClient) jsonRequest(ctx context.Context, method, path string, body interface{}, dst interface{}) error {
 	buf, err := json.Marshal(body)
 	if err != nil {

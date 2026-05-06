@@ -56,6 +56,11 @@ func (c Config) maxRetries() int {
 //	mgmtClient      := meshapi.New(meshapi.Config{Token: "<jwt>"})
 type Client struct {
 	Chat      *ChatResource
+	Responses *ResponsesResource
+	Embeddings *EmbeddingsResource
+	Compare   *CompareResource
+	Files     *FilesResource
+	Batches   *BatchesResource
 	Models    *ModelsResource
 	Templates *TemplatesResource
 }
@@ -67,6 +72,11 @@ func New(cfg Config) *Client {
 		Chat: &ChatResource{
 			Completions: &CompletionsResource{http: http},
 		},
+		Responses: &ResponsesResource{http: http},
+		Embeddings: &EmbeddingsResource{http: http},
+		Compare: &CompareResource{http: http},
+		Files: &FilesResource{http: http},
+		Batches: &BatchesResource{http: http},
 		Models:    &ModelsResource{http: http},
 		Templates: &TemplatesResource{http: http},
 	}
