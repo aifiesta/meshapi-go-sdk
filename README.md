@@ -70,10 +70,22 @@ compCh, errCh := client.Compare.Stream(ctx, meshapi.CompareParams{
 })
 
 // Files & Batches
-file, _ := client.Files.Create(ctx, "data.jsonl", bytes.NewReader(myContent), "batch")
+file, _ := client.Files.Upload(ctx, meshapi.UploadBatchFileParams{
+    Purpose: "batch",
+    Requests: []meshapi.BatchRequestItem{
+        {
+            CustomID: "req-1",
+            Body: map[string]interface{}{
+                "model": "openai/gpt-4o-mini",
+                "messages": []map[string]interface{}{{"role": "user", "content": "Hello"}},
+            },
+        },
+    },
+})
 batch, _ := client.Batches.Create(ctx, meshapi.CreateBatchParams{
-    InputFileID: file.ID,
-    Endpoint:    "/v1/chat/completions",
+    InputFileID:      file.ID,
+    Endpoint:         "/v1/chat/completions",
+    CompletionWindow: "24h",
 })
 ```
 
