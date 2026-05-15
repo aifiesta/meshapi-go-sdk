@@ -68,6 +68,11 @@ compCh, errCh := client.Compare.Stream(ctx, meshapi.CompareParams{
     Models: []string{"openai/gpt-4o-mini", "anthropic/claude-3-haiku"},
     Messages: []meshapi.ChatMessage{{Role: "user", Content: "Hello"}},
 })
+for range compCh {
+}
+if err := <-errCh; err != nil {
+    log.Fatal(err)
+}
 
 // Files & Batches
 file, _ := client.Files.Upload(ctx, meshapi.UploadBatchFileParams{
