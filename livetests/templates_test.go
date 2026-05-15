@@ -2,6 +2,7 @@ package livetest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
