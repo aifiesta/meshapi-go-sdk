@@ -7,10 +7,9 @@ name: Live Tests
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     branches: [main]
-  push:
-    tags: ["v*"]
   workflow_dispatch:
 
 jobs:

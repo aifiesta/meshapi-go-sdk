@@ -74,6 +74,14 @@ func liveModel() string {
 	return liveEnv("MESHAPI_MODEL", defaultModel)
 }
 
+func liveSecondModel() string {
+	fallback := "anthropic/claude-haiku-4-5"
+	if liveModel() == fallback {
+		fallback = defaultModel
+	}
+	return liveEnv("MESHAPI_SECOND_MODEL", fallback)
+}
+
 func strPtr(s string) *string { return &s }
 func intPtr(i int) *int       { return &i }
 
