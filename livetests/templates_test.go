@@ -91,8 +91,8 @@ func TestLive_Templates_CRUD(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected 404 after delete, got nil")
 	}
-	svcErr, ok := err.(*meshapi.MeshAPIError)
-	if !ok {
+	var svcErr *meshapi.MeshAPIError
+	if !errors.As(err, &svcErr) {
 		t.Fatalf("expected *MeshAPIError, got %T: %v", err, err)
 	}
 	if svcErr.Status != 404 {
