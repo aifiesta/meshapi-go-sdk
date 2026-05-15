@@ -2,10 +2,14 @@ package livetest
 
 import (
 	"bufio"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	meshapi "meshapi-go-sdk"
 )
@@ -16,7 +20,33 @@ const (
 	defaultModel   = "openai/gpt-4o-mini"
 )
 
-var sharedEnv = loadSharedEnv()
+var (
+	sharedEnv        = loadSharedEnv()
+	backendChecked   bool
+	backendReachable bool
+	backendMu        sync.Mutex
+)
+
+func checkConnectivity(baseURL string) bool {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return false
+	}
+	host := u.Host
+	if !strings.Contains(host, ":") {
+		if u.Scheme == "https" {
+			host += ":443"
+		} else {
+			host += ":80"
+		}
+	}
+	conn, err := net.DialTimeout("tcp", host, 2*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
 
 func loadSharedEnv() map[string]string {
 	values := map[string]string{}
@@ -48,8 +78,33 @@ func loadSharedEnv() map[string]string {
 	return values
 }
 
+func skipIfNoBackend(t *testing.T) {
+	t.Helper()
+	baseURL := os.Getenv("MESHAPI_BASE_URL")
+	if baseURL == "" {
+		baseURL = sharedEnv["MESHAPI_BASE_URL"]
+	}
+	if baseURL == "" {
+		baseURL = defaultBaseURL
+	}
+
+	backendMu.Lock()
+	if !backendChecked {
+		backendReachable = checkConnectivity(baseURL)
+		backendChecked = true
+	}
+	reachable := backendReachable
+	backendMu.Unlock()
+
+	if !reachable {
+		t.Skipf("Backend %s is not reachable, skipping live test", baseURL)
+	}
+}
+
 func newClient(t *testing.T) *meshapi.Client {
 	t.Helper()
+	skipIfNoBackend(t)
+
 	baseURL := os.Getenv("MESHAPI_BASE_URL")
 	if baseURL == "" {
 		baseURL = sharedEnv["MESHAPI_BASE_URL"]

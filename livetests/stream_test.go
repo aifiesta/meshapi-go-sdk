@@ -101,6 +101,7 @@ func TestLive_Stream_Cancel(t *testing.T) {
 }
 
 func TestLive_Stream_ErrorAuth(t *testing.T) {
+	skipIfNoBackend(t)
 	badClient := meshapi.New(meshapi.Config{
 		BaseURL: defaultBaseURL,
 		Token:   "rsk_invalid_token",

@@ -9,6 +9,7 @@ import (
 )
 
 func TestLive_Error_Unauthorized(t *testing.T) {
+	skipIfNoBackend(t)
 	badClient := meshapi.New(meshapi.Config{
 		BaseURL: defaultBaseURL,
 		Token:   "rsk_badtoken",
@@ -57,6 +58,7 @@ func TestLive_Error_NotFound(t *testing.T) {
 }
 
 func TestLive_Error_TypeChain(t *testing.T) {
+	skipIfNoBackend(t)
 	badClient := meshapi.New(meshapi.Config{
 		BaseURL: defaultBaseURL,
 		Token:   "rsk_badtoken",
