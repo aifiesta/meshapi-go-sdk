@@ -43,7 +43,7 @@ func TestLive_Embeddings_Create(t *testing.T) {
 	ctx := context.Background()
 
 	resp, err := client.Embeddings.Create(ctx, meshapi.EmbeddingsParams{
-		Model: strPtr(liveModel()),
+		Model: strPtr(liveEmbeddingsModel()),
 		Input: "MeshAPI embeddings smoke test",
 	})
 	if err != nil {

@@ -80,13 +80,7 @@ func loadSharedEnv() map[string]string {
 
 func skipIfNoBackend(t *testing.T) {
 	t.Helper()
-	baseURL := os.Getenv("MESHAPI_BASE_URL")
-	if baseURL == "" {
-		baseURL = sharedEnv["MESHAPI_BASE_URL"]
-	}
-	if baseURL == "" {
-		baseURL = defaultBaseURL
-	}
+	baseURL := liveBaseURL()
 
 	backendMu.Lock()
 	if !backendChecked {
@@ -101,10 +95,7 @@ func skipIfNoBackend(t *testing.T) {
 	}
 }
 
-func newClient(t *testing.T) *meshapi.Client {
-	t.Helper()
-	skipIfNoBackend(t)
-
+func liveBaseURL() string {
 	baseURL := os.Getenv("MESHAPI_BASE_URL")
 	if baseURL == "" {
 		baseURL = sharedEnv["MESHAPI_BASE_URL"]
@@ -112,6 +103,14 @@ func newClient(t *testing.T) *meshapi.Client {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
+	return baseURL
+}
+
+func newClient(t *testing.T) *meshapi.Client {
+	t.Helper()
+	skipIfNoBackend(t)
+
+	baseURL := liveBaseURL()
 	token := os.Getenv("MESHAPI_TOKEN")
 	if token == "" {
 		token = sharedEnv["MESHAPI_TOKEN"]
@@ -135,6 +134,10 @@ func liveSecondModel() string {
 		fallback = defaultModel
 	}
 	return liveEnv("MESHAPI_SECOND_MODEL", fallback)
+}
+
+func liveEmbeddingsModel() string {
+	return liveEnv("MESHAPI_EMBEDDINGS_MODEL", "openai/text-embedding-3-small")
 }
 
 func strPtr(s string) *string { return &s }
