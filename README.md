@@ -50,6 +50,31 @@ free, _   := client.Models.Free(ctx)
 // Templates
 tmpl, _ := client.Templates.Create(ctx, meshapi.CreateTemplateParams{Name: "my-tpl"})
 client.Templates.Delete(ctx, tmpl.ID)
+
+// Responses (Reasoning)
+resp, _ := client.Responses.Create(ctx, meshapi.ResponsesParams{
+    Model: "openai/o3-mini",
+    Input: "Solve for X: 2x + 5 = 15",
+})
+
+// Embeddings
+emb, _ := client.Embeddings.Create(ctx, meshapi.EmbeddingsParams{
+    Model: "openai/text-embedding-3-small",
+    Input: []string{"The quick brown fox"},
+})
+
+// Compare (Multi-model)
+compCh, errCh := client.Compare.Stream(ctx, meshapi.CompareParams{
+    Models: []string{"openai/gpt-4o-mini", "anthropic/claude-3-haiku"},
+    Messages: []meshapi.ChatMessage{{Role: "user", Content: "Hello"}},
+})
+
+// Files & Batches
+file, _ := client.Files.Create(ctx, "data.jsonl", bytes.NewReader(myContent), "batch")
+batch, _ := client.Batches.Create(ctx, meshapi.CreateBatchParams{
+    InputFileID: file.ID,
+    Endpoint:    "/v1/chat/completions",
+})
 ```
 
 ## Error Handling

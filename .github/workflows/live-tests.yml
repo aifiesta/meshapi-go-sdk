@@ -1,0 +1,23 @@
+# Go SDK — Live Tests
+# Calls the reusable workflow in aifiesta/meshapi-sdk-livetest.
+# Set MESHAPI_TOKEN in: Settings → Secrets and Variables → Actions → Secrets
+
+name: Live Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  live-test:
+    name: Run Go Live Tests
+    uses: aifiesta/meshapi-sdk-livetest/.github/workflows/sdk-live-tests.yml@main
+    with:
+      language: go
+      go-version: "1.22"
+    secrets: inherit
