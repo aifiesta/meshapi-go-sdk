@@ -52,8 +52,9 @@ tmpl, _ := client.Templates.Create(ctx, meshapi.CreateTemplateParams{Name: "my-t
 client.Templates.Delete(ctx, tmpl.ID)
 
 // Responses (Reasoning)
+respModel := "openai/o3-mini"
 resp, _ := client.Responses.Create(ctx, meshapi.ResponsesParams{
-    Model: "openai/o3-mini",
+    Model: &respModel,
     Input: "Solve for X: 2x + 5 = 15",
 })
 
