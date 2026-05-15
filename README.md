@@ -58,8 +58,9 @@ resp, _ := client.Responses.Create(ctx, meshapi.ResponsesParams{
 })
 
 // Embeddings
+embModel := "openai/text-embedding-3-small"
 emb, _ := client.Embeddings.Create(ctx, meshapi.EmbeddingsParams{
-    Model: "openai/text-embedding-3-small",
+    Model: &embModel,
     Input: []string{"The quick brown fox"},
 })
 
