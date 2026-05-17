@@ -80,6 +80,26 @@ img, _ := client.Images.Generate(ctx, meshapi.ImageGenerationParams{
     OutputFormat: &imgOutputFormat,
 })
 
+// Image Generation — streaming
+chunkCh, imgErrCh := client.Images.Stream(ctx, meshapi.ImageGenerationParams{
+    Model:        &imgModel,
+    Prompt:       "A watercolor of a fox in a snowy forest",
+    N:            &imgN,
+    Size:         &imgSize,
+    Quality:      &imgQuality,
+    OutputFormat: &imgOutputFormat,
+})
+for chunk := range chunkCh {
+    if chunk.Status != nil && *chunk.Status == "processing" {
+        fmt.Println("Generating...")
+    } else if len(chunk.Data) > 0 && chunk.Data[0].URL != nil {
+        fmt.Println("Done:", *chunk.Data[0].URL)
+    }
+}
+if err := <-imgErrCh; err != nil {
+    log.Fatal(err)
+}
+
 // Compare (Multi-model)
 compCh, errCh := client.Compare.Stream(ctx, meshapi.CompareParams{
     Models: []string{"openai/gpt-4o-mini", "anthropic/claude-3-haiku"},
