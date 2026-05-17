@@ -87,8 +87,12 @@ func TestLive_Responses_Stream(t *testing.T) {
 		count++
 	}
 	if err := <-errCh; err != nil {
+		if strings.Contains(err.Error(), "status=501") {
+			t.Skip("[SKIP] responses.stream -> 501 Not Implemented (model may not support native responses streaming fallback)")
+		}
 		t.Fatalf("responses.stream: %v", err)
 	}
+
 	if count == 0 {
 		t.Fatal("responses.stream returned 0 events")
 	}
