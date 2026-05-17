@@ -489,3 +489,12 @@ type ImageGenerationResponse struct {
 	Size         *string     `json:"size,omitempty"`
 	Usage        *ImageUsage `json:"usage,omitempty"`
 }
+
+type ImageGenerationChunk struct {
+	ID      *string     `json:"id,omitempty"`
+	Object  *string     `json:"object,omitempty"`
+	Created int64       `json:"created"`
+	Model   *string     `json:"model,omitempty"`
+	Data    []ImageItem `json:"data"`
+	Status  *string     `json:"status,omitempty"`
+}
