@@ -456,21 +456,36 @@ type BatchListResponse struct {
 // ---------------------------------------------------------------------------
 
 type ImageGenerationParams struct {
-	Prompt         string  `json:"prompt"`
-	Model          *string `json:"model,omitempty"`
-	N              *int    `json:"n,omitempty"`
-	Size           *string `json:"size,omitempty"`
+	Prompt       string  `json:"prompt"`
+	Model        *string `json:"model,omitempty"`
+	N            *int    `json:"n,omitempty"`
+	Size         *string `json:"size,omitempty"`
 	Quality        *string `json:"quality,omitempty"`
 	ResponseFormat *string `json:"response_format,omitempty"`
+	OutputFormat   *string `json:"output_format,omitempty"`
 	Stream         *bool   `json:"stream,omitempty"`
 }
 
 type ImageItem struct {
-	URL     *string `json:"url,omitempty"`
-	B64JSON *string `json:"b64_json,omitempty"`
+	URL           *string `json:"url,omitempty"`
+	B64JSON       *string `json:"b64_json,omitempty"`
+	RevisedPrompt *string `json:"revised_prompt,omitempty"`
+}
+
+type ImageUsage struct {
+	PromptTokens           int                    `json:"prompt_tokens"`
+	CompletionTokens       int                    `json:"completion_tokens"`
+	TotalTokens            int                    `json:"total_tokens"`
+	InputTokensDetails     map[string]interface{} `json:"input_tokens_details,omitempty"`
+	OutputTokensDetails    map[string]interface{} `json:"output_tokens_details,omitempty"`
 }
 
 type ImageGenerationResponse struct {
-	Created int64       `json:"created"`
-	Data    []ImageItem `json:"data"`
+	Created      int64       `json:"created"`
+	Data         []ImageItem `json:"data"`
+	Background   *string     `json:"background,omitempty"`
+	OutputFormat *string     `json:"output_format,omitempty"`
+	Quality      *string     `json:"quality,omitempty"`
+	Size         *string     `json:"size,omitempty"`
+	Usage        *ImageUsage `json:"usage,omitempty"`
 }

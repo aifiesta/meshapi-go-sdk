@@ -66,10 +66,18 @@ emb, _ := client.Embeddings.Create(ctx, meshapi.EmbeddingsParams{
 })
 
 // Image Generation
-imgModel := "openai/dall-e-3"
+imgModel := "openai/gpt-image-1"
+imgSize := "1024x1024"
+imgQuality := "high"
+imgOutputFormat := "webp"
+imgN := 1
 img, _ := client.Images.Generate(ctx, meshapi.ImageGenerationParams{
-    Model:  &imgModel,
-    Prompt: "A cute baby sea otter",
+    Model:        &imgModel,
+    Prompt:       "A watercolor of a fox in a snowy forest",
+    N:            &imgN,
+    Size:         &imgSize,
+    Quality:      &imgQuality,
+    OutputFormat: &imgOutputFormat,
 })
 
 // Compare (Multi-model)
