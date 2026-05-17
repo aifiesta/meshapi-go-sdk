@@ -258,9 +258,10 @@ func TestLive_Images_Generate(t *testing.T) {
 	if len(resp.Data) == 0 {
 		t.Fatal("images.generate returned 0 images")
 	}
-	if resp.Data[0].B64JSON == "" && resp.Data[0].URL == "" {
+	if (resp.Data[0].B64JSON == nil || *resp.Data[0].B64JSON == "") && (resp.Data[0].URL == nil || *resp.Data[0].URL == "") {
 		t.Fatal("images.generate returned empty image data")
 	}
+
 	t.Logf("[PASS] images.generate -> created=%d images=%d", resp.Created, len(resp.Data))
 }
 

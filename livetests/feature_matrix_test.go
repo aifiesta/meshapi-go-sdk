@@ -33,8 +33,9 @@ func TestLive_FeatureMatrix_StableOptions(t *testing.T) {
 	t.Log("[SKIP] responses stable options -> reasoning.effort not supported by default model")
 
 	emb, err := client.Embeddings.Create(ctx, meshapi.EmbeddingsParams{
-		Model: strPtr(liveEnv("MESHAPI_EMBEDDINGS_MODEL", liveModel())),
+		Model: strPtr(liveEmbeddingsModel()),
 		Input: []string{"alpha", "beta"},
+
 		User:  strPtr("go-feature-matrix"),
 	})
 	if err != nil {
