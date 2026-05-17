@@ -450,3 +450,27 @@ type BatchListResponse struct {
 	FirstID *string       `json:"first_id,omitempty"`
 	LastID  *string       `json:"last_id,omitempty"`
 }
+
+// ---------------------------------------------------------------------------
+// Images
+// ---------------------------------------------------------------------------
+
+type ImageGenerationParams struct {
+	Prompt         string  `json:"prompt"`
+	Model          *string `json:"model,omitempty"`
+	N              *int    `json:"n,omitempty"`
+	Size           *string `json:"size,omitempty"`
+	Quality        *string `json:"quality,omitempty"`
+	ResponseFormat *string `json:"response_format,omitempty"`
+	Stream         *bool   `json:"stream,omitempty"`
+}
+
+type ImageItem struct {
+	URL     *string `json:"url,omitempty"`
+	B64JSON *string `json:"b64_json,omitempty"`
+}
+
+type ImageGenerationResponse struct {
+	Created int64       `json:"created"`
+	Data    []ImageItem `json:"data"`
+}

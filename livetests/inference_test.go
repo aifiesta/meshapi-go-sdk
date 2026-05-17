@@ -231,3 +231,36 @@ func TestLive_FilesAndBatches_Lifecycle(t *testing.T) {
 	}
 	t.Log("[PASS] files.delete -> 204 No Content")
 }
+
+func TestLive_Images_Generate(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+
+	imageGenModel := liveImageGenModel()
+	if imageGenModel == "" {
+		t.Skip("MESHAPI_IMAGE_GEN_MODEL not set")
+	}
+
+	n := 1
+	size := "1024x1024"
+	resp, err := client.Images.Generate(ctx, meshapi.ImageGenerationParams{
+		Model:  &imageGenModel,
+		Prompt: "A small blue square on a white background.",
+		N:      &n,
+		Size:   &size,
+	})
+	if err != nil {
+		t.Fatalf("images.generate: %v", err)
+	}
+	if resp.Created == 0 {
+		t.Fatal("images.generate returned 0 created timestamp")
+	}
+	if len(resp.Data) == 0 {
+		t.Fatal("images.generate returned 0 images")
+	}
+	if resp.Data[0].B64JSON == "" && resp.Data[0].URL == "" {
+		t.Fatal("images.generate returned empty image data")
+	}
+	t.Logf("[PASS] images.generate -> created=%d images=%d", resp.Created, len(resp.Data))
+}
+

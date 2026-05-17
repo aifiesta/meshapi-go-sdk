@@ -65,6 +65,13 @@ emb, _ := client.Embeddings.Create(ctx, meshapi.EmbeddingsParams{
     Input: []string{"The quick brown fox"},
 })
 
+// Image Generation
+imgModel := "openai/dall-e-3"
+img, _ := client.Images.Generate(ctx, meshapi.ImageGenerationParams{
+    Model:  &imgModel,
+    Prompt: "A cute baby sea otter",
+})
+
 // Compare (Multi-model)
 compCh, errCh := client.Compare.Stream(ctx, meshapi.CompareParams{
     Models: []string{"openai/gpt-4o-mini", "anthropic/claude-3-haiku"},

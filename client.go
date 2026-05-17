@@ -63,6 +63,7 @@ type Client struct {
 	Batches   *BatchesResource
 	Models    *ModelsResource
 	Templates *TemplatesResource
+	Images    *ImagesResource
 }
 
 // New creates a new MeshAPI client with the given configuration.
@@ -79,5 +80,6 @@ func New(cfg Config) *Client {
 		Batches: &BatchesResource{http: http},
 		Models:    &ModelsResource{http: http},
 		Templates: &TemplatesResource{http: http},
+		Images:    &ImagesResource{http: http},
 	}
 }

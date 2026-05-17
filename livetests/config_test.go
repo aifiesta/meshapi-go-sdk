@@ -140,6 +140,11 @@ func liveEmbeddingsModel() string {
 	return liveEnv("MESHAPI_EMBEDDINGS_MODEL", "openai/text-embedding-3-small")
 }
 
+func liveImageGenModel() string {
+	return liveEnv("MESHAPI_IMAGE_GEN_MODEL", "")
+}
+
+
 func strPtr(s string) *string { return &s }
 func intPtr(i int) *int       { return &i }
 
