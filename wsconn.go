@@ -13,6 +13,7 @@ package meshapi
 
 import (
 	"bufio"
+	"context"
 	"crypto/rand"
 	"crypto/sha1" //nolint:gosec — SHA-1 is mandated by the WebSocket spec
 	"crypto/tls"
@@ -57,8 +58,9 @@ type wsConn struct {
 }
 
 // dialWS opens a WebSocket connection to wsURL using the given extra HTTP headers.
-// wsURL must start with "ws://" or "wss://".
-func dialWS(wsURL string, extraHeaders http.Header) (*wsConn, error) {
+// wsURL must start with "ws://" or "wss://". ctx controls the dial timeout and
+// cancellation.
+func dialWS(ctx context.Context, wsURL string, extraHeaders http.Header) (*wsConn, error) {
 	u, err := url.Parse(wsURL)
 	if err != nil {
 		return nil, fmt.Errorf("wsconn: parse url: %w", err)
@@ -71,12 +73,14 @@ func dialWS(wsURL string, extraHeaders http.Header) (*wsConn, error) {
 		if !strings.Contains(host, ":") {
 			host += ":443"
 		}
-		rawConn, err = tls.Dial("tcp", host, &tls.Config{ServerName: u.Hostname()}) //nolint:gosec
+		rawConn, err = (&tls.Dialer{
+			Config: &tls.Config{ServerName: u.Hostname()}, //nolint:gosec
+		}).DialContext(ctx, "tcp", host)
 	case "ws":
 		if !strings.Contains(host, ":") {
 			host += ":80"
 		}
-		rawConn, err = net.Dial("tcp", host)
+		rawConn, err = (&net.Dialer{}).DialContext(ctx, "tcp", host)
 	default:
 		return nil, fmt.Errorf("wsconn: unsupported scheme %q", u.Scheme)
 	}

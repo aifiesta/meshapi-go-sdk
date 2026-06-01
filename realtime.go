@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 )
 
 // RealtimeConnectParams holds parameters for opening a realtime session.
@@ -83,31 +84,39 @@ func (s *RealtimeSession) SendAudio(ctx context.Context, audio []byte) error {
 //
 // Returns *RealtimeError when the server delivers an error envelope
 // ({"type":"error",...}). Returns io.EOF on a clean server-initiated close.
-// Context cancellation interrupts an in-progress read.
+// Context cancellation or deadline interrupts an in-progress read.
 func (s *RealtimeSession) Receive(ctx context.Context) (RealtimeMessage, error) {
-	// Run the blocking read in a goroutine so we can respect ctx.
-	type result struct {
-		f   wsFrame
-		err error
+	// Apply any context deadline to the underlying net.Conn so ReadFrame unblocks.
+	if dl, ok := ctx.Deadline(); ok {
+		_ = s.conn.conn.SetReadDeadline(dl)
+		defer s.conn.conn.SetReadDeadline(time.Time{}) //nolint:errcheck
 	}
-	ch := make(chan result, 1)
-	go func() {
-		f, err := s.conn.ReadFrame()
-		ch <- result{f, err}
-	}()
 
-	select {
-	case <-ctx.Done():
-		return RealtimeMessage{}, ctx.Err()
-	case r := <-ch:
-		if r.err != nil {
-			if isClosedErr(r.err) {
-				return RealtimeMessage{}, io.EOF
+	// For cancellation-only contexts (no deadline), watch in a short-lived goroutine
+	// that unblocks the read by setting an immediate deadline, then exits.
+	if ctx.Done() != nil {
+		watchDone := make(chan struct{})
+		defer close(watchDone)
+		go func() {
+			select {
+			case <-ctx.Done():
+				_ = s.conn.conn.SetReadDeadline(time.Now()) //nolint:errcheck
+			case <-watchDone:
 			}
-			return RealtimeMessage{}, r.err
-		}
-		return decodeFrame(r.f)
+		}()
 	}
+
+	f, err := s.conn.ReadFrame()
+	if err != nil {
+		if ctx.Err() != nil {
+			return RealtimeMessage{}, ctx.Err()
+		}
+		if isClosedErr(err) {
+			return RealtimeMessage{}, io.EOF
+		}
+		return RealtimeMessage{}, err
+	}
+	return decodeFrame(f)
 }
 
 // Events starts a goroutine that pumps server frames into the returned channels.
@@ -139,8 +148,11 @@ func (s *RealtimeSession) Events(ctx context.Context) (<-chan RealtimeMessage, <
 }
 
 // Close closes the WebSocket connection with a normal closure.
-// It is safe to call Close more than once.
+// It acquires sendMu so that an in-progress Send or SendAudio is not
+// racing with the close frame write. It is safe to call Close more than once.
 func (s *RealtimeSession) Close() error {
+	s.sendMu.Lock()
+	defer s.sendMu.Unlock()
 	return s.conn.Close(wsStatusNormal, "")
 }
 
@@ -159,14 +171,14 @@ type RealtimeResource struct {
 // The returned session is ready for bidirectional frame exchange immediately.
 // Cancel ctx to abort the connection attempt; for an established session use
 // session.Close().
-func (r *RealtimeResource) Connect(_ context.Context, params RealtimeConnectParams) (*RealtimeSession, error) {
+func (r *RealtimeResource) Connect(ctx context.Context, params RealtimeConnectParams) (*RealtimeSession, error) {
 	wsURL := realtimeWSURL(r.http.cfg.BaseURL, params.Model, r.http.cfg.Token)
 
 	headers := http.Header{}
 	headers.Set("Sec-WebSocket-Protocol", "openai-realtime")
 	headers.Set(sdkVersionHeader, sdkVersionValue)
 
-	conn, err := dialWS(wsURL, headers)
+	conn, err := dialWS(ctx, wsURL, headers)
 	if err != nil {
 		return nil, fmt.Errorf("realtime: connect: %w", err)
 	}
