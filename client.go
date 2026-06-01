@@ -64,6 +64,7 @@ type Client struct {
 	Templates *TemplatesResource
 	Images    *ImagesResource
 	RAG       *RagResource
+	Realtime  *RealtimeResource
 }
 
 // New creates a new MeshAPI client with the given configuration.
@@ -73,13 +74,14 @@ func New(cfg Config) *Client {
 		Chat: &ChatResource{
 			Completions: &CompletionsResource{http: http},
 		},
-		Responses: &ResponsesResource{http: http},
+		Responses:  &ResponsesResource{http: http},
 		Embeddings: &EmbeddingsResource{http: http},
-		Compare: &CompareResource{http: http},
-		Batches: &BatchesResource{http: http},
-		Models:    &ModelsResource{http: http},
-		Templates: &TemplatesResource{http: http},
-		Images:    &ImagesResource{http: http},
-		RAG:       &RagResource{http: http},
+		Compare:    &CompareResource{http: http},
+		Batches:    &BatchesResource{http: http},
+		Models:     &ModelsResource{http: http},
+		Templates:  &TemplatesResource{http: http},
+		Images:     &ImagesResource{http: http},
+		RAG:        &RagResource{http: http},
+		Realtime:   &RealtimeResource{http: http},
 	}
 }

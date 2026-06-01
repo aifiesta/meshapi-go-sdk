@@ -129,7 +129,7 @@ func liveModel() string {
 }
 
 func liveSecondModel() string {
-	fallback := "anthropic/claude-haiku-4-5"
+	fallback := "anthropic/claude-haiku-4.5"
 	if liveModel() == fallback {
 		fallback = defaultModel
 	}
@@ -142,6 +142,10 @@ func liveEmbeddingsModel() string {
 
 func liveImageGenModel() string {
 	return liveEnv("MESHAPI_IMAGE_GEN_MODEL", "")
+}
+
+func liveRealtimeModel() string {
+	return liveEnv("MESHAPI_REALTIME_MODEL", "openai/gpt-realtime-mini")
 }
 
 
