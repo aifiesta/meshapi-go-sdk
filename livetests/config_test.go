@@ -144,6 +144,10 @@ func liveImageGenModel() string {
 	return liveEnv("MESHAPI_IMAGE_GEN_MODEL", "")
 }
 
+func liveRealtimeModel() string {
+	return liveEnv("MESHAPI_REALTIME_MODEL", "")
+}
+
 
 func strPtr(s string) *string { return &s }
 func intPtr(i int) *int       { return &i }
