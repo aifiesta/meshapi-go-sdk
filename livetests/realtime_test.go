@@ -75,6 +75,7 @@ func TestLive_Realtime_SendSessionUpdate(t *testing.T) {
 	updateCmd := map[string]any{
 		"type": "session.update",
 		"session": map[string]any{
+			"type": "realtime",
 			"instructions": "You are a helpful assistant.",
 		},
 	}
