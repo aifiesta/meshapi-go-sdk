@@ -160,7 +160,9 @@ func (c *wsConn) ReadFrame() (wsFrame, error) {
 		switch f.opcode {
 		case wsOpPing:
 			// Reply with Pong carrying the same payload; ignore errors.
-			_ = c.writeFrame(wsOpPong, f.payload)
+			// pongPayload is copied here so it is safe to return the frame.
+			pongPayload := append([]byte(nil), f.payload...)
+			_ = c.pongFunc(pongPayload) // caller-supplied, mutex-guarded
 			continue
 		case wsOpPong:
 			// Unsolicited pong — ignore.
