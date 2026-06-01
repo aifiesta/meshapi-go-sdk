@@ -43,7 +43,7 @@ func (r *RagResource) List(ctx context.Context, params ListRagFilesParams) (*Rag
 // Get returns the current status of a single RAG file.
 func (r *RagResource) Get(ctx context.Context, fileID string) (*RagFileStatus, error) {
 	var out RagFileStatus
-	if err := r.http.get(ctx, "/v1/files/"+fileID, nil, &out); err != nil {
+	if err := r.http.get(ctx, "/v1/files/"+url.PathEscape(fileID), nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

@@ -37,7 +37,8 @@ func putFile(t *testing.T, signedURL, mimeType string, body []byte) {
 }
 
 // pollEmbedding waits up to maxWait for a RAG file to reach embedding_status="ready".
-func pollEmbedding(t *testing.T, client *meshapi.Client, ctx context.Context, fileID string, maxWait time.Duration) *meshapi.RagFileStatus {
+// ctx comes immediately after t, before client, following Go convention for test helpers.
+func pollEmbedding(t *testing.T, ctx context.Context, client *meshapi.Client, fileID string, maxWait time.Duration) *meshapi.RagFileStatus {
 	t.Helper()
 	deadline := time.Now().Add(maxWait)
 	for time.Now().Before(deadline) {
@@ -62,6 +63,32 @@ func pollEmbedding(t *testing.T, client *meshapi.Client, ctx context.Context, fi
 	return nil
 }
 
+// findFileInList paginates through all RAG files until fileID is found or the
+// list is exhausted. Returns true if found.
+func findFileInList(t *testing.T, ctx context.Context, client *meshapi.Client, fileID string) bool {
+	t.Helper()
+	const pageSize = 50
+	offset := 0
+	for {
+		page, err := client.RAG.List(ctx, meshapi.ListRagFilesParams{
+			Limit:  intPtr(pageSize),
+			Offset: intPtr(offset),
+		})
+		if err != nil {
+			t.Fatalf("rag.list (offset=%d): %v", offset, err)
+		}
+		for _, f := range page.Files {
+			if f.FileID == fileID {
+				return true
+			}
+		}
+		offset += len(page.Files)
+		if offset >= page.Total {
+			return false
+		}
+	}
+}
+
 func TestLive_RAG_UploadAndSearch(t *testing.T) {
 	client := newClient(t)
 	ctx := context.Background()
@@ -79,6 +106,9 @@ func TestLive_RAG_UploadAndSearch(t *testing.T) {
 		t.Fatalf("rag.initUpload: %v", err)
 	}
 	t.Logf("[PASS] rag.initUpload → file_id=%q", upload.FileID)
+
+	// Note: the RAG API has no DELETE endpoint, so uploaded files cannot be
+	// cleaned up programmatically. Each test run leaves one file in the account.
 
 	// ── Step 2: PUT file content to signed URL ──
 	putFile(t, upload.SignedURL, mimeType, content)
@@ -116,25 +146,15 @@ func TestLive_RAG_UploadAndSearch(t *testing.T) {
 	t.Logf("[PASS] rag.embed → status=%q", embedResp.Results[0].EmbeddingStatus)
 
 	// ── Step 5: Poll until embedding_status=ready ──
-	pollEmbedding(t, client, ctx, upload.FileID, 90*time.Second)
+	pollEmbedding(t, ctx, client, upload.FileID, 90*time.Second)
 	t.Logf("[PASS] embedding complete for file %q", upload.FileID)
 
-	// ── Step 6: List — file must appear ──
-	list, err := client.RAG.List(ctx, meshapi.ListRagFilesParams{Limit: intPtr(50)})
-	if err != nil {
-		t.Fatalf("rag.list: %v", err)
+	// ── Step 6: List — paginate until file is found or all pages exhausted ──
+	if !findFileInList(t, ctx, client, upload.FileID) {
+		t.Errorf("uploaded file %q not found in list", upload.FileID)
+	} else {
+		t.Logf("[PASS] rag.list → uploaded file present")
 	}
-	found := false
-	for _, f := range list.Files {
-		if f.FileID == upload.FileID {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("uploaded file %q not found in list (%d files)", upload.FileID, len(list.Files))
-	}
-	t.Logf("[PASS] rag.list → %d files, uploaded file present", len(list.Files))
 
 	// ── Step 7: Search ──
 	topK := 5
