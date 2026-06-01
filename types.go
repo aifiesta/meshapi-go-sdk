@@ -406,26 +406,9 @@ type BatchRequestItem struct {
 	Body     map[string]interface{} `json:"body"`
 }
 
-type UploadBatchFileParams struct {
-	Purpose  string             `json:"purpose,omitempty"`
-	Requests []BatchRequestItem `json:"requests"`
-}
-
-type FileObject struct {
-	ID            string      `json:"id"`
-	Object        *string     `json:"object,omitempty"`
-	Bytes         *int        `json:"bytes,omitempty"`
-	CreatedAt     *int64      `json:"created_at,omitempty"`
-	Filename      *string     `json:"filename,omitempty"`
-	Purpose       *string     `json:"purpose,omitempty"`
-	Status        *string     `json:"status,omitempty"`
-	StatusDetails interface{} `json:"status_details,omitempty"`
-}
-
 type CreateBatchParams struct {
-	InputFileID      string                 `json:"input_file_id"`
-	Endpoint         string                 `json:"endpoint"`
-	CompletionWindow string                 `json:"completion_window"`
+	Requests         []BatchRequestItem     `json:"requests"`
+	CompletionWindow *string                `json:"completion_window,omitempty"`
 	Metadata         map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -489,6 +472,119 @@ type ImageGenerationResponse struct {
 	Size         *string     `json:"size,omitempty"`
 	Usage        *ImageUsage `json:"usage,omitempty"`
 }
+
+// ---------------------------------------------------------------------------
+// RAG (Retrieval-Augmented Generation)
+// ---------------------------------------------------------------------------
+
+// InitUploadRequest initialises a RAG file upload and returns a signed URL.
+type InitUploadRequest struct {
+	FileName string                 `json:"file_name"`
+	MimeType string                 `json:"mime_type"`
+	Embed    *bool                  `json:"embed,omitempty"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// UploadFileParams is used by RagResource.UploadFile — it combines the upload
+// initialisation fields with the raw file Content to upload in one call.
+type UploadFileParams struct {
+	FileName string
+	MimeType string
+	Content  []byte
+	Embed    *bool
+	Metadata map[string]interface{}
+}
+
+// InitUploadResponse is returned by POST /v1/files (RAG).
+type InitUploadResponse struct {
+	FileID    string `json:"file_id"`
+	SignedURL string `json:"signed_url"`
+	ExpiresAt string `json:"expires_at"`
+}
+
+// RagFileStatus represents the processing state of a RAG file.
+type RagFileStatus struct {
+	FileID              string                 `json:"file_id"`
+	UploadStatus        string                 `json:"upload_status"`
+	FileName            string                 `json:"file_name"`
+	FileType            string                 `json:"file_type"`
+	MimeType            string                 `json:"mime_type"`
+	SizeBytes           *int64                 `json:"size_bytes,omitempty"`
+	AssetURL            *string                `json:"asset_url,omitempty"`
+	SignedURL           *string                `json:"signed_url,omitempty"`
+	SignedURLExpiresAt  *string                `json:"signed_url_expires_at,omitempty"`
+	EmbeddingStatus     string                 `json:"embedding_status"`
+	CreatedAt           string                 `json:"created_at"`
+	UpdatedAt           string                 `json:"updated_at"`
+	TotalTokens         *int64                 `json:"total_tokens,omitempty"`
+	TotalCostUSD        *float64               `json:"total_cost_usd,omitempty"`
+	LastErrorCode       *string                `json:"last_error_code,omitempty"`
+}
+
+// RagFileListResponse is returned by GET /v1/files (RAG).
+type RagFileListResponse struct {
+	Files  []RagFileStatus `json:"files"`
+	Total  int             `json:"total"`
+	Limit  int             `json:"limit"`
+	Offset int             `json:"offset"`
+}
+
+// ListRagFilesParams are the query parameters for GET /v1/files (RAG).
+type ListRagFilesParams struct {
+	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitempty"`
+}
+
+// BulkEmbedRequest triggers embedding jobs for one or more files.
+type BulkEmbedRequest struct {
+	FileIDs  []string               `json:"file_ids"`
+	Wait     *bool                  `json:"wait,omitempty"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// BulkEmbedResult is the per-file result from POST /v1/files/embed.
+type BulkEmbedResult struct {
+	FileID          string  `json:"file_id"`
+	EmbeddingStatus string  `json:"embedding_status"`
+	ChunkCount      *int    `json:"chunk_count,omitempty"`
+	Error           *string `json:"error,omitempty"`
+}
+
+// BulkEmbedResponse is returned by POST /v1/files/embed.
+type BulkEmbedResponse struct {
+	Results []BulkEmbedResult `json:"results"`
+}
+
+// SearchRequest is the body for POST /v1/files/search.
+type SearchRequest struct {
+	Query    string                 `json:"query"`
+	TopK     *int                   `json:"top_k,omitempty"`
+	FileIDs  []string               `json:"file_ids,omitempty"`
+	Filter   map[string]interface{} `json:"filter,omitempty"`
+	DateFrom *int64                 `json:"date_from,omitempty"`
+	DateTo   *int64                 `json:"date_to,omitempty"`
+}
+
+// SearchResult is a single vector-search hit.
+type SearchResult struct {
+	Score      float64                `json:"score"`
+	Text       string                 `json:"text"`
+	ParentText string                 `json:"parent_text"`
+	FileID     *string                `json:"file_id,omitempty"`
+	FileName   *string                `json:"file_name,omitempty"`
+	FileType   *string                `json:"file_type,omitempty"`
+	MimeType   *string                `json:"mime_type,omitempty"`
+	ChunkIndex *int                   `json:"chunk_index,omitempty"`
+	CreatedAt  *int64                 `json:"created_at,omitempty"`
+	Metadata   map[string]interface{} `json:"metadata"`
+}
+
+// SearchResponse is returned by POST /v1/files/search.
+type SearchResponse struct {
+	Results []SearchResult `json:"results"`
+}
+
+// ---------------------------------------------------------------------------
 
 type ImageGenerationChunk struct {
 	ID      *string     `json:"id,omitempty"`

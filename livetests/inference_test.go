@@ -4,17 +4,20 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"time"
 
 	meshapi "meshapi-go-sdk"
 )
+
+// batchModel is the model used for all batch live tests. Not all models support
+// the Batch API; this one is known to have batching enabled.
+const batchModel = "openai/gpt-5-nano"
 
 func batchRequests(tag string) []meshapi.BatchRequestItem {
 	return []meshapi.BatchRequestItem{
 		{
 			CustomID: tag + "-1",
 			Body: map[string]interface{}{
-				"model": MODELOrDefault(),
+				"model": batchModel,
 				"messages": []map[string]interface{}{
 					{"role": "user", "content": "Reply with the single word: hello"},
 				},
@@ -24,7 +27,7 @@ func batchRequests(tag string) []meshapi.BatchRequestItem {
 		{
 			CustomID: tag + "-2",
 			Body: map[string]interface{}{
-				"model": MODELOrDefault(),
+				"model": batchModel,
 				"messages": []map[string]interface{}{
 					{"role": "user", "content": "Reply with the single word: world"},
 				},
@@ -32,10 +35,6 @@ func batchRequests(tag string) []meshapi.BatchRequestItem {
 			},
 		},
 	}
-}
-
-func MODELOrDefault() string {
-	return liveModel()
 }
 
 func TestLive_Embeddings_Create(t *testing.T) {
@@ -151,44 +150,16 @@ func TestLive_Compare_Stream(t *testing.T) {
 	t.Logf("[PASS] compare.stream -> %d event(s)", count)
 }
 
-func TestLive_FilesAndBatches_Lifecycle(t *testing.T) {
-	t.Skip("files/batches endpoint validation mismatch — needs API spec investigation")
+func TestLive_Batches_Lifecycle(t *testing.T) {
 	client := newClient(t)
 	ctx := context.Background()
 
 	tag := uniqueName("go-batch")
-	uploaded, err := client.Files.Upload(ctx, meshapi.UploadBatchFileParams{
-		Purpose:  "batch",
-		Requests: batchRequests(tag),
-	})
-	if err != nil {
-		t.Fatalf("files.upload: %v", err)
-	}
-	t.Logf("[PASS] files.upload -> id=%q", uploaded.ID)
 
-	fetched, err := client.Files.Get(ctx, uploaded.ID)
-	if err != nil {
-		t.Fatalf("files.get: %v", err)
-	}
-	if fetched.ID != uploaded.ID {
-		t.Fatalf("files.get mismatch: want %q got %q", uploaded.ID, fetched.ID)
-	}
-	t.Logf("[PASS] files.get -> status=%v bytes=%v", fetched.Status, fetched.Bytes)
-
-	content, err := client.Files.Content(ctx, uploaded.ID)
-	if err != nil {
-		t.Fatalf("files.content: %v", err)
-	}
-	if !strings.Contains(string(content), tag+"-1") {
-		t.Fatalf("files.content missing custom_id %q", tag+"-1")
-	}
-	t.Logf("[PASS] files.content -> %d bytes", len(content))
-
+	// Create batch with inline requests (no file upload step required)
 	batch, err := client.Batches.Create(ctx, meshapi.CreateBatchParams{
-		InputFileID:      uploaded.ID,
-		Endpoint:         "/v1/chat/completions",
-		CompletionWindow: "24h",
-		Metadata:         map[string]interface{}{"suite": "go-livetest", "ts": time.Now().Unix()},
+		Requests: batchRequests(tag),
+		Metadata: map[string]interface{}{"suite": "go-livetest"},
 	})
 	if err != nil {
 		t.Fatalf("batches.create: %v", err)
@@ -229,11 +200,6 @@ func TestLive_FilesAndBatches_Lifecycle(t *testing.T) {
 		t.Fatalf("batches.cancel mismatch: want %q got %q", batch.ID, cancelled.ID)
 	}
 	t.Logf("[PASS] batches.cancel -> status=%v", cancelled.Status)
-
-	if err := client.Files.Delete(ctx, uploaded.ID); err != nil {
-		t.Fatalf("files.delete: %v", err)
-	}
-	t.Log("[PASS] files.delete -> 204 No Content")
 }
 
 func TestLive_Images_Generate(t *testing.T) {
