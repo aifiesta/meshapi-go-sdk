@@ -406,26 +406,9 @@ type BatchRequestItem struct {
 	Body     map[string]interface{} `json:"body"`
 }
 
-type UploadBatchFileParams struct {
-	Purpose  string             `json:"purpose,omitempty"`
-	Requests []BatchRequestItem `json:"requests"`
-}
-
-type FileObject struct {
-	ID            string      `json:"id"`
-	Object        *string     `json:"object,omitempty"`
-	Bytes         *int        `json:"bytes,omitempty"`
-	CreatedAt     *int64      `json:"created_at,omitempty"`
-	Filename      *string     `json:"filename,omitempty"`
-	Purpose       *string     `json:"purpose,omitempty"`
-	Status        *string     `json:"status,omitempty"`
-	StatusDetails interface{} `json:"status_details,omitempty"`
-}
-
 type CreateBatchParams struct {
-	InputFileID      string                 `json:"input_file_id"`
-	Endpoint         string                 `json:"endpoint"`
-	CompletionWindow string                 `json:"completion_window"`
+	Requests         []BatchRequestItem     `json:"requests"`
+	CompletionWindow *string                `json:"completion_window,omitempty"`
 	Metadata         map[string]interface{} `json:"metadata,omitempty"`
 }
 

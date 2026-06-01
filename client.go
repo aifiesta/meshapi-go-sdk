@@ -59,7 +59,6 @@ type Client struct {
 	Responses *ResponsesResource
 	Embeddings *EmbeddingsResource
 	Compare   *CompareResource
-	Files     *FilesResource
 	Batches   *BatchesResource
 	Models    *ModelsResource
 	Templates *TemplatesResource
@@ -77,7 +76,6 @@ func New(cfg Config) *Client {
 		Responses: &ResponsesResource{http: http},
 		Embeddings: &EmbeddingsResource{http: http},
 		Compare: &CompareResource{http: http},
-		Files: &FilesResource{http: http},
 		Batches: &BatchesResource{http: http},
 		Models:    &ModelsResource{http: http},
 		Templates: &TemplatesResource{http: http},
