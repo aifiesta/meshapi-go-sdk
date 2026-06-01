@@ -8,12 +8,16 @@ import (
 	meshapi "meshapi-go-sdk"
 )
 
+// batchModel is the model used for all batch live tests. Not all models support
+// the Batch API; this one is known to have batching enabled.
+const batchModel = "openai/gpt-5-nano"
+
 func batchRequests(tag string) []meshapi.BatchRequestItem {
 	return []meshapi.BatchRequestItem{
 		{
 			CustomID: tag + "-1",
 			Body: map[string]interface{}{
-				"model": MODELOrDefault(),
+				"model": batchModel,
 				"messages": []map[string]interface{}{
 					{"role": "user", "content": "Reply with the single word: hello"},
 				},
@@ -23,7 +27,7 @@ func batchRequests(tag string) []meshapi.BatchRequestItem {
 		{
 			CustomID: tag + "-2",
 			Body: map[string]interface{}{
-				"model": MODELOrDefault(),
+				"model": batchModel,
 				"messages": []map[string]interface{}{
 					{"role": "user", "content": "Reply with the single word: world"},
 				},
@@ -31,10 +35,6 @@ func batchRequests(tag string) []meshapi.BatchRequestItem {
 			},
 		},
 	}
-}
-
-func MODELOrDefault() string {
-	return liveModel()
 }
 
 func TestLive_Embeddings_Create(t *testing.T) {
