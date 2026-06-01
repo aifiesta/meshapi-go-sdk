@@ -154,10 +154,10 @@ type RealtimeResource struct {
 // Cancel ctx to abort the connection attempt; for an established session use
 // session.Close().
 func (r *RealtimeResource) Connect(_ context.Context, params RealtimeConnectParams) (*RealtimeSession, error) {
-	wsURL := realtimeWSURL(r.http.cfg.BaseURL, params.Model)
+	wsURL := realtimeWSURL(r.http.cfg.BaseURL, params.Model, r.http.cfg.Token)
 
 	headers := http.Header{}
-	headers.Set("Sec-WebSocket-Protocol", "openai-realtime, Bearer "+r.http.cfg.Token)
+	headers.Set("Sec-WebSocket-Protocol", "openai-realtime")
 	headers.Set(sdkVersionHeader, sdkVersionValue)
 
 	conn, err := dialWS(wsURL, headers)
@@ -169,11 +169,11 @@ func (r *RealtimeResource) Connect(_ context.Context, params RealtimeConnectPara
 
 // realtimeWSURL rewrites the http/https scheme to ws/wss and appends the
 // realtime path and model query parameter.
-func realtimeWSURL(baseURL, model string) string {
+func realtimeWSURL(baseURL, model, token string) string {
 	base := strings.TrimRight(baseURL, "/")
 	base = strings.Replace(base, "https://", "wss://", 1)
 	base = strings.Replace(base, "http://", "ws://", 1)
-	return base + "/v1/realtime?model=" + url.QueryEscape(model)
+	return base + "/v1/realtime?model=" + url.QueryEscape(model) + "&api_key=" + url.QueryEscape(token)
 }
 
 // decodeFrame turns a raw wsFrame into a typed RealtimeMessage.

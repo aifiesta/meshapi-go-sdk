@@ -15,7 +15,7 @@ env:
   MESHAPI_TOKEN: ${{ secrets.MESHAPI_TOKEN }}
   MESHAPI_MODEL: "openai/gpt-4o-mini"
   MESHAPI_EMBEDDINGS_MODEL: "openai/text-embedding-3-small"
-  MESHAPI_SECOND_MODEL: "anthropic/claude-haiku-4-5"
+  MESHAPI_SECOND_MODEL: "anthropic/claude-haiku-4.5"
   MESHAPI_IMAGE_URL: "https://upload.wikimedia.org/wikipedia/commons/3/3f/Fronalpstock_big.jpg"
 
 jobs:
