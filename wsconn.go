@@ -149,9 +149,14 @@ func (c *wsConn) handshake(u *url.URL, extraHeaders http.Header) error {
 
 // ReadFrame reads one complete WebSocket frame from the server.
 // It automatically replies to Ping frames with Pong and discards them,
-// transparently returning the next data frame to the caller.
-// Close frames from the server are returned with opcode wsOpClose.
+// ReadFrame reads one complete (possibly reassembled) WebSocket message from
+// the server. It automatically replies to Ping frames with Pong and discards
+// them. Close frames are returned with opcode wsOpClose.
 func (c *wsConn) ReadFrame() (wsFrame, error) {
+	var (
+		msgOpcode byte
+		payload   []byte
+	)
 	for {
 		f, err := c.readFrameRaw()
 		if err != nil {
@@ -159,16 +164,20 @@ func (c *wsConn) ReadFrame() (wsFrame, error) {
 		}
 		switch f.opcode {
 		case wsOpPing:
-			// Reply with Pong carrying the same payload; ignore errors.
-			// pongPayload is copied here so it is safe to return the frame.
-			pongPayload := append([]byte(nil), f.payload...)
-			_ = c.pongFunc(pongPayload) // caller-supplied, mutex-guarded
+			_ = c.writeFrame(wsOpPong, f.payload)
 			continue
 		case wsOpPong:
-			// Unsolicited pong — ignore.
 			continue
 		}
-		return f, nil
+		if f.opcode != wsOpContinuation {
+			msgOpcode = f.opcode
+			payload = f.payload
+		} else {
+			payload = append(payload, f.payload...)
+		}
+		if f.fin {
+			return wsFrame{opcode: msgOpcode, fin: true, payload: payload}, nil
+		}
 	}
 }
 
