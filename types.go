@@ -485,6 +485,16 @@ type InitUploadRequest struct {
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
+// UploadFileParams is used by RagResource.UploadFile — it combines the upload
+// initialisation fields with the raw file Content to upload in one call.
+type UploadFileParams struct {
+	FileName string
+	MimeType string
+	Content  []byte
+	Embed    *bool
+	Metadata map[string]interface{}
+}
+
 // InitUploadResponse is returned by POST /v1/files (RAG).
 type InitUploadResponse struct {
 	FileID    string `json:"file_id"`

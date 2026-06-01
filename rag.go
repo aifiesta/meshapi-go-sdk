@@ -1,8 +1,10 @@
 package meshapi
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 )
 
@@ -55,6 +57,38 @@ func (r *RagResource) Embed(ctx context.Context, params BulkEmbedRequest) (*Bulk
 		return nil, err
 	}
 	return &out, nil
+}
+
+// UploadFile is a convenience wrapper that calls InitUpload then PUTs the
+// file content to the returned signed URL in one step.
+// It returns the same InitUploadResponse so the caller has the FileID.
+func (r *RagResource) UploadFile(ctx context.Context, params UploadFileParams) (*InitUploadResponse, error) {
+	upload, err := r.InitUpload(ctx, InitUploadRequest{
+		FileName: params.FileName,
+		MimeType: params.MimeType,
+		Embed:    params.Embed,
+		Metadata: params.Metadata,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, upload.SignedURL, bytes.NewReader(params.Content))
+	if err != nil {
+		return nil, fmt.Errorf("rag: build PUT request: %w", err)
+	}
+	req.Header.Set("Content-Type", params.MimeType)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("rag: PUT signed URL: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("rag: PUT signed URL returned HTTP %d", resp.StatusCode)
+	}
+
+	return upload, nil
 }
 
 // Search performs a vector similarity search over embedded files.
