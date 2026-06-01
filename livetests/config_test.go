@@ -129,7 +129,7 @@ func liveModel() string {
 }
 
 func liveSecondModel() string {
-	fallback := "anthropic/claude-haiku-4-5"
+	fallback := "anthropic/claude-haiku-4.5"
 	if liveModel() == fallback {
 		fallback = defaultModel
 	}

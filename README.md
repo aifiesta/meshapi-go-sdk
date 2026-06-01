@@ -94,7 +94,7 @@ for chunk := range chunkCh { ... }
 
 ```go
 compCh, errCh := client.Compare.Stream(ctx, meshapi.CompareParams{
-    Models:   []string{"openai/gpt-4o-mini", "anthropic/claude-haiku-4-5"},
+    Models:   []string{"openai/gpt-4o-mini", "anthropic/claude-haiku-4.5"},
     Messages: []meshapi.ChatMessage{{Role: "user", Content: "Hello"}},
 })
 for event := range compCh { ... }
