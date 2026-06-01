@@ -56,10 +56,13 @@ type RealtimeSession struct {
 }
 
 // Send marshals event as JSON and sends it to the server as a text frame.
-func (s *RealtimeSession) Send(_ context.Context, event any) error {
+func (s *RealtimeSession) Send(ctx context.Context, event any) error {
 	data, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("realtime: marshal event: %w", err)
+	}
+	if dl, ok := ctx.Deadline(); ok {
+		s.conn.conn.SetWriteDeadline(dl)
 	}
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
@@ -67,7 +70,10 @@ func (s *RealtimeSession) Send(_ context.Context, event any) error {
 }
 
 // SendAudio sends raw audio bytes to the server as a binary frame.
-func (s *RealtimeSession) SendAudio(_ context.Context, audio []byte) error {
+func (s *RealtimeSession) SendAudio(ctx context.Context, audio []byte) error {
+	if dl, ok := ctx.Deadline(); ok {
+		s.conn.conn.SetWriteDeadline(dl)
+	}
 	s.sendMu.Lock()
 	defer s.sendMu.Unlock()
 	return s.conn.WriteBinary(audio)
