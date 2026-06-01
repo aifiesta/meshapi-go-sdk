@@ -12,36 +12,28 @@ import (
 // TestLive_Realtime_ConnectAndClose verifies that the WebSocket upgrade
 // succeeds and that a clean close handshake completes without error.
 func TestLive_Realtime_ConnectAndClose(t *testing.T) {
-	model := liveRealtimeModel()
-	if model == "" {
-		t.Skip("MESHAPI_REALTIME_MODEL not set — skipping realtime live tests")
-	}
 	client := newClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	session, err := client.Realtime.Connect(ctx, meshapi.RealtimeConnectParams{Model: model})
+	session, err := client.Realtime.Connect(ctx, meshapi.RealtimeConnectParams{Model: liveRealtimeModel()})
 	if err != nil {
 		t.Fatalf("realtime.connect: %v", err)
 	}
 	if err := session.Close(); err != nil {
 		t.Logf("realtime.close (non-fatal): %v", err)
 	}
-	t.Logf("[PASS] realtime.connect+close model=%q", model)
+	t.Logf("[PASS] realtime.connect+close model=%q", liveRealtimeModel())
 }
 
 // TestLive_Realtime_ReceiveSessionCreated verifies that the server sends
 // a "session.created" event immediately after the WebSocket handshake.
 func TestLive_Realtime_ReceiveSessionCreated(t *testing.T) {
-	model := liveRealtimeModel()
-	if model == "" {
-		t.Skip("MESHAPI_REALTIME_MODEL not set — skipping realtime live tests")
-	}
 	client := newClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	session, err := client.Realtime.Connect(ctx, meshapi.RealtimeConnectParams{Model: model})
+	session, err := client.Realtime.Connect(ctx, meshapi.RealtimeConnectParams{Model: liveRealtimeModel()})
 	if err != nil {
 		t.Fatalf("realtime.connect: %v", err)
 	}
@@ -64,15 +56,11 @@ func TestLive_Realtime_ReceiveSessionCreated(t *testing.T) {
 // TestLive_Realtime_SendSessionUpdate verifies that the client can send a
 // session.update command and receive a session.updated acknowledgement.
 func TestLive_Realtime_SendSessionUpdate(t *testing.T) {
-	model := liveRealtimeModel()
-	if model == "" {
-		t.Skip("MESHAPI_REALTIME_MODEL not set — skipping realtime live tests")
-	}
 	client := newClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	session, err := client.Realtime.Connect(ctx, meshapi.RealtimeConnectParams{Model: model})
+	session, err := client.Realtime.Connect(ctx, meshapi.RealtimeConnectParams{Model: liveRealtimeModel()})
 	if err != nil {
 		t.Fatalf("realtime.connect: %v", err)
 	}
@@ -117,8 +105,6 @@ func TestLive_Realtime_ErrorEnvelope_BadModel(t *testing.T) {
 		Model: "nonexistent/bad-model-xyz",
 	})
 	if err == nil {
-		// Server accepted — could happen if the model check is deferred.
-		// Try to read the error envelope from the session.
 		t.Log("connect succeeded; model validation may be deferred (non-fatal)")
 		return
 	}
@@ -127,22 +113,17 @@ func TestLive_Realtime_ErrorEnvelope_BadModel(t *testing.T) {
 
 // TestLive_Realtime_Events_ChannelAPI verifies the channel-based Events API.
 func TestLive_Realtime_Events_ChannelAPI(t *testing.T) {
-	model := liveRealtimeModel()
-	if model == "" {
-		t.Skip("MESHAPI_REALTIME_MODEL not set — skipping realtime live tests")
-	}
 	client := newClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	session, err := client.Realtime.Connect(ctx, meshapi.RealtimeConnectParams{Model: model})
+	session, err := client.Realtime.Connect(ctx, meshapi.RealtimeConnectParams{Model: liveRealtimeModel()})
 	if err != nil {
 		t.Fatalf("realtime.connect: %v", err)
 	}
 
 	msgCh, errCh := session.Events(ctx)
 
-	// Wait for the first frame via the channel API.
 	select {
 	case msg, ok := <-msgCh:
 		if !ok {
@@ -165,14 +146,10 @@ func TestLive_Realtime_Events_ChannelAPI(t *testing.T) {
 // TestLive_Realtime_ContextCancel verifies that cancelling the context
 // causes Receive to return promptly without blocking.
 func TestLive_Realtime_ContextCancel(t *testing.T) {
-	model := liveRealtimeModel()
-	if model == "" {
-		t.Skip("MESHAPI_REALTIME_MODEL not set — skipping realtime live tests")
-	}
 	client := newClient(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 
-	session, err := client.Realtime.Connect(ctx, meshapi.RealtimeConnectParams{Model: model})
+	session, err := client.Realtime.Connect(ctx, meshapi.RealtimeConnectParams{Model: liveRealtimeModel()})
 	if err != nil {
 		t.Fatalf("realtime.connect: %v", err)
 	}
@@ -183,7 +160,6 @@ func TestLive_Realtime_ContextCancel(t *testing.T) {
 		t.Fatalf("realtime.receive session.created: %v", err)
 	}
 
-	// Cancel the context and verify Receive returns promptly.
 	cancel()
 	done := make(chan struct{})
 	go func() {

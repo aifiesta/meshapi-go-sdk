@@ -145,7 +145,7 @@ func liveImageGenModel() string {
 }
 
 func liveRealtimeModel() string {
-	return liveEnv("MESHAPI_REALTIME_MODEL", "")
+	return liveEnv("MESHAPI_REALTIME_MODEL", "openai/gpt-realtime-mini")
 }
 
 

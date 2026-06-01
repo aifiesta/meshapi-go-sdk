@@ -79,7 +79,7 @@ Create `go/.env.livetest` (read automatically by the test harness) or export the
 | `MESHAPI_EMBEDDINGS_MODEL` | No | `openai/text-embedding-3-small` | Model used in embeddings tests |
 | `MESHAPI_IMAGE_GEN_MODEL` | No | _(skipped if unset)_ | Image generation model; test skipped if blank |
 | `MESHAPI_IMAGE_URL` | No | _(skipped if unset)_ | Publicly accessible image URL for vision tests |
-| `MESHAPI_REALTIME_MODEL` | No | _(skipped if unset)_ | Realtime-capable model, e.g. `openai/gpt-4o-realtime-preview`; tests skipped if blank |
+| `MESHAPI_REALTIME_MODEL` | No | `openai/gpt-realtime-mini` | Realtime-capable model used in WebSocket live tests |
 
 Example `go/.env.livetest`:
 
