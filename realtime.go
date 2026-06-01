@@ -182,7 +182,14 @@ func (r *RealtimeResource) Connect(ctx context.Context, params RealtimeConnectPa
 	if err != nil {
 		return nil, fmt.Errorf("realtime: connect: %w", err)
 	}
-	return &RealtimeSession{conn: conn}, nil
+	session := &RealtimeSession{conn: conn}
+	// Wire pong replies under sendMu so they never race with Send/SendAudio.
+	conn.pongFunc = func(payload []byte) error {
+		session.sendMu.Lock()
+		defer session.sendMu.Unlock()
+		return conn.writeFrame(wsOpPong, payload)
+	}
+	return session, nil
 }
 
 // realtimeWSURL rewrites the http/https scheme to ws/wss and appends the

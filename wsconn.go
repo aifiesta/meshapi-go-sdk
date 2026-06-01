@@ -52,9 +52,13 @@ type wsFrame struct {
 // wsConn is a raw WebSocket connection over a net.Conn.
 // All methods are NOT concurrency-safe; callers must synchronise externally.
 type wsConn struct {
-	conn   net.Conn
-	reader *bufio.Reader
-	closed bool
+	conn     net.Conn
+	reader   *bufio.Reader
+	closed   bool
+	// pongFunc is called by ReadFrame to reply to server Ping frames.
+	// It must be set by the owner (RealtimeSession.Connect) to a wrapper
+	// that holds sendMu, so pong writes never race with Send/SendAudio.
+	pongFunc func([]byte) error
 }
 
 // dialWS opens a WebSocket connection to wsURL using the given extra HTTP headers.
@@ -168,7 +172,11 @@ func (c *wsConn) ReadFrame() (wsFrame, error) {
 		}
 		switch f.opcode {
 		case wsOpPing:
-			_ = c.writeFrame(wsOpPong, f.payload)
+			if c.pongFunc != nil {
+				_ = c.pongFunc(f.payload)
+			} else {
+				_ = c.writeFrame(wsOpPong, f.payload)
+			}
 			continue
 		case wsOpPong:
 			continue
