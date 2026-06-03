@@ -63,6 +63,7 @@ type Client struct {
 	Models    *ModelsResource
 	Templates *TemplatesResource
 	Images    *ImagesResource
+	Videos    *VideosResource
 	RAG       *RagResource
 	Realtime  *RealtimeResource
 }
@@ -81,6 +82,7 @@ func New(cfg Config) *Client {
 		Models:     &ModelsResource{http: http},
 		Templates:  &TemplatesResource{http: http},
 		Images:     &ImagesResource{http: http},
+		Videos:     &VideosResource{http: http},
 		RAG:        &RagResource{http: http},
 		Realtime:   &RealtimeResource{http: http},
 	}

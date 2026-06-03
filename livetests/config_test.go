@@ -148,6 +148,10 @@ func liveRealtimeModel() string {
 	return liveEnv("MESHAPI_REALTIME_MODEL", "openai/gpt-realtime-mini")
 }
 
+func liveVideoGenModel() string {
+	return liveEnv("MESHAPI_VIDEO_GEN_MODEL", "")
+}
+
 
 func strPtr(s string) *string { return &s }
 func intPtr(i int) *int       { return &i }

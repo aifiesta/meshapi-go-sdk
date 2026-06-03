@@ -594,3 +594,85 @@ type ImageGenerationChunk struct {
 	Data    []ImageItem `json:"data"`
 	Status  *string     `json:"status,omitempty"`
 }
+
+// ── Video generation ──────────────────────────────────────────────────────────
+
+// VideoContentItem is a single element of the content array for video generation.
+type VideoContentItem struct {
+	Type      string                 `json:"type"`
+	Text      *string                `json:"text,omitempty"`
+	ImageURL  map[string]interface{} `json:"image_url,omitempty"`
+	VideoURL  map[string]interface{} `json:"video_url,omitempty"`
+	AudioURL  map[string]interface{} `json:"audio_url,omitempty"`
+	DraftTask map[string]interface{} `json:"draft_task,omitempty"`
+	Role      *string                `json:"role,omitempty"`
+}
+
+// VideoGenerationParams is the request body for POST /v1/video/generations.
+type VideoGenerationParams struct {
+	Model                  string             `json:"model"`
+	Content                []VideoContentItem `json:"content"`
+	CallbackURL            *string            `json:"callback_url,omitempty"`
+	ReturnLastFrame        *bool              `json:"return_last_frame,omitempty"`
+	ServiceTier            *string            `json:"service_tier,omitempty"`
+	ExecutionExpiresAfter  *int               `json:"execution_expires_after,omitempty"`
+	GenerateAudio          *bool              `json:"generate_audio,omitempty"`
+	Draft                  *bool              `json:"draft,omitempty"`
+	Resolution             *string            `json:"resolution,omitempty"`
+	Ratio                  *string            `json:"ratio,omitempty"`
+	Duration               *int               `json:"duration,omitempty"`
+	Frames                 *int               `json:"frames,omitempty"`
+	Seed                   *int               `json:"seed,omitempty"`
+	CameraFixed            *bool              `json:"camera_fixed,omitempty"`
+	Watermark              *bool              `json:"watermark,omitempty"`
+	SafetyIdentifier       *string            `json:"safety_identifier,omitempty"`
+	Priority               *int               `json:"priority,omitempty"`
+}
+
+// CreateVideoGenerationResponse is returned by POST /v1/video/generations.
+type CreateVideoGenerationResponse struct {
+	ID string `json:"id"`
+}
+
+// VideoTaskError holds the error details for a failed video task.
+type VideoTaskError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// VideoTaskContent holds the output URLs of a completed video task.
+type VideoTaskContent struct {
+	VideoURL     *string `json:"video_url,omitempty"`
+	LastFrameURL *string `json:"last_frame_url,omitempty"`
+}
+
+// VideoTaskUsage holds token usage for a video generation task.
+type VideoTaskUsage struct {
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
+// VideoTaskResponse is returned by GET /v1/video/generations/{task_id}.
+type VideoTaskResponse struct {
+	ID                    string            `json:"id"`
+	Model                 *string           `json:"model,omitempty"`
+	Status                string            `json:"status"` // queued | running | cancelled | succeeded | failed | expired
+	Error                 *VideoTaskError   `json:"error,omitempty"`
+	CreatedAt             *int64            `json:"created_at,omitempty"`
+	UpdatedAt             *int64            `json:"updated_at,omitempty"`
+	Content               *VideoTaskContent `json:"content,omitempty"`
+	Seed                  *int              `json:"seed,omitempty"`
+	Resolution            *string           `json:"resolution,omitempty"`
+	Ratio                 *string           `json:"ratio,omitempty"`
+	Duration              *int              `json:"duration,omitempty"`
+	Frames                *int              `json:"frames,omitempty"`
+	FramesPerSecond       *int              `json:"framespersecond,omitempty"`
+	GenerateAudio         *bool             `json:"generate_audio,omitempty"`
+	SafetyIdentifier      *string           `json:"safety_identifier,omitempty"`
+	Priority              *int              `json:"priority,omitempty"`
+	Draft                 *bool             `json:"draft,omitempty"`
+	DraftTaskID           *string           `json:"draft_task_id,omitempty"`
+	ServiceTier           *string           `json:"service_tier,omitempty"`
+	ExecutionExpiresAfter *int              `json:"execution_expires_after,omitempty"`
+	Usage                 *VideoTaskUsage   `json:"usage,omitempty"`
+}

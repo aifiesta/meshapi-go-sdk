@@ -25,6 +25,7 @@ go/
 ├── models.go          # /v1/models
 ├── templates.go       # /v1/templates
 ├── images.go          # /v1/images/generations
+├── videos.go          # /v1/video/generations (BytePlus Seedance async)
 ├── *_test.go          # Unit / contract / integration tests
 └── livetests/         # Live tests against a real backend
 ```
@@ -80,6 +81,7 @@ Create `go/.env.livetest` (read automatically by the test harness) or export the
 | `MESHAPI_IMAGE_GEN_MODEL` | No | _(skipped if unset)_ | Image generation model; test skipped if blank |
 | `MESHAPI_IMAGE_URL` | No | _(skipped if unset)_ | Publicly accessible image URL for vision tests |
 | `MESHAPI_REALTIME_MODEL` | No | `openai/gpt-realtime-mini` | Realtime-capable model used in WebSocket live tests |
+| `MESHAPI_VIDEO_GEN_MODEL` | No | _(skipped if unset)_ | BytePlus Seedance model for video generation tests; test skipped if blank |
 
 Example `go/.env.livetest`:
 
@@ -116,6 +118,7 @@ go test -run TestLive_RAG -v -timeout 300s
 | `errors_test.go` | 401/404 error handling |
 | `feature_matrix_test.go` | Cross-model feature matrix |
 | `rag_test.go` | RAG upload → embed → list → search |
+| `video_test.go` | Video generation create + poll lifecycle |
 | `realtime_test.go` | WebSocket connect/close, session.created, session.update, error envelopes, Events() channel API, context cancel |
 
 ### RAG live test notes
