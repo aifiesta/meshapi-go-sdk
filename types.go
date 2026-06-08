@@ -103,6 +103,7 @@ type ChatCompletionParams struct {
 	Seed             *int          `json:"seed,omitempty"`
 	Tools            []Tool        `json:"tools,omitempty"`
 	ToolChoice       interface{}   `json:"tool_choice,omitempty"`
+	ResponseFormat   map[string]interface{} `json:"response_format,omitempty"`
 	Transforms       []string      `json:"transforms,omitempty"`
 	Models           []string      `json:"models,omitempty"`
 	User             *string       `json:"user,omitempty"`
