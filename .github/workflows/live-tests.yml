@@ -55,5 +55,5 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": "${{ job.status == 'success' && '✅' || '❌' }} *Go SDK Live Tests* — ${{ job.status }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run> · ${{ github.ref_name }} · ${{ env.MESHAPI_MODEL }}"
+              "text": "${{ job.status == 'success' && '✅' || '❌' }} *Go SDK Live Tests* — ${{ job.status }}\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run> · ${{ github.head_ref || github.ref_name }}"
             }
