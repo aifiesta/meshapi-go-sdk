@@ -122,7 +122,6 @@ func TestLive_Compare_Create(t *testing.T) {
 }
 
 func TestLive_Compare_Stream(t *testing.T) {
-	t.Skip("server-side SQLAlchemy session concurrency issue when compare tests run back-to-back")
 	client := newClient(t)
 	ctx := context.Background()
 

@@ -159,7 +159,11 @@ func tryParseJSONSSEFrame[T any](frame string) (*T, bool, error) {
 	if err := json.Unmarshal([]byte(dataLine), &raw); err != nil {
 		return nil, false, nil
 	}
-	if errRaw, ok := raw["error"]; ok {
+	// Only treat "error" as a fatal stream error when it is a JSON object
+	// (the standard error envelope: {"error": {"code": "...", "message": "..."}}).
+	// Compare stream events use "error": "string" for per-model partial failures,
+	// which are valid domain data and should be deserialized into T, not raised.
+	if errRaw, ok := raw["error"]; ok && len(errRaw) > 0 && errRaw[0] == '{' {
 		var errBody struct {
 			Code    string `json:"code"`
 			Message string `json:"message"`

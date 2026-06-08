@@ -103,6 +103,7 @@ type ChatCompletionParams struct {
 	Seed             *int          `json:"seed,omitempty"`
 	Tools            []Tool        `json:"tools,omitempty"`
 	ToolChoice       interface{}   `json:"tool_choice,omitempty"`
+	ResponseFormat   map[string]interface{} `json:"response_format,omitempty"`
 	Transforms       []string      `json:"transforms,omitempty"`
 	Models           []string      `json:"models,omitempty"`
 	User             *string       `json:"user,omitempty"`
@@ -111,6 +112,11 @@ type ChatCompletionParams struct {
 	AsyncMode        *bool         `json:"async_mode,omitempty"`
 	Modalities       []string      `json:"modalities,omitempty"`
 	Audio            *AudioOutputOptions `json:"audio,omitempty"`
+	// Timeout overrides the server's upstream-provider timeout (default 300 s).
+	// Set this for requests that may take longer than 5 minutes. This is
+	// independent of the SDK-level TimeoutMs option on Config, which controls
+	// the HTTP client timeout.
+	Timeout          *float64      `json:"timeout,omitempty"`
 }
 
 // UsageInfo holds token counts for a completion.
@@ -319,6 +325,8 @@ type ResponsesParams struct {
 	ResponseFormat  map[string]interface{} `json:"response_format,omitempty"`
 	Plugins         []interface{} `json:"plugins,omitempty"`
 	User            *string       `json:"user,omitempty"`
+	// Timeout overrides the server's upstream-provider timeout (default 300 s).
+	Timeout         *float64      `json:"timeout,omitempty"`
 }
 
 type ResponsesUsage struct {
