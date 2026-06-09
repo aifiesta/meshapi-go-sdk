@@ -10,7 +10,7 @@ Go client for the MeshAPI AI model gateway.
 ## Installation
 
 ```bash
-go get github.com/aifiesta/meshapi-go-sdk@v0.1.5
+go get github.com/aifiesta/meshapi-go-sdk@v0.1.6
 ```
 
 ## Quick Start
