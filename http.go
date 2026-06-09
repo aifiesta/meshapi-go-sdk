@@ -61,7 +61,9 @@ func (h *httpClient) baseHeaders() map[string]string {
 
 func (h *httpClient) do(ctx context.Context, req *http.Request) (*http.Response, error) {
 	for k, v := range h.baseHeaders() {
-		req.Header.Set(k, v)
+		if req.Header.Get(k) == "" {
+			req.Header.Set(k, v)
+		}
 	}
 
 	maxRetries := h.cfg.maxRetries()
@@ -217,14 +219,23 @@ func (h *httpClient) postBytes(ctx context.Context, path string, body interface{
 }
 
 // postMultipart sends a multipart/form-data POST.
-// fields contains string form values; fileData (if non-nil) is the file content for the "file" field.
-func (h *httpClient) postMultipart(ctx context.Context, path string, fields map[string]string, fileData []byte, filename string, dst interface{}) error {
+// fields contains single-value form fields; multiValueFields contains repeated fields (e.g. keyterms).
+// fileData (if non-nil) is the file content attached as the "file" field.
+func (h *httpClient) postMultipart(ctx context.Context, path string, fields map[string]string, multiValueFields map[string][]string, fileData []byte, filename string, dst interface{}) error {
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 
 	for k, v := range fields {
 		if err := mw.WriteField(k, v); err != nil {
 			return fmt.Errorf("write field %s: %w", k, err)
+		}
+	}
+
+	for k, vals := range multiValueFields {
+		for _, v := range vals {
+			if err := mw.WriteField(k, v); err != nil {
+				return fmt.Errorf("write field %s: %w", k, err)
+			}
 		}
 	}
 
@@ -246,12 +257,10 @@ func (h *httpClient) postMultipart(ctx context.Context, path string, fields map[
 	if err != nil {
 		return err
 	}
+	// Set Content-Type before h.do() so the "set if absent" logic preserves the multipart boundary.
 	req.Header.Set("Content-Type", mw.FormDataContentType())
-	req.Header.Set("Authorization", "Bearer "+h.cfg.Token)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set(sdkVersionHeader, sdkVersionValue)
 
-	resp, err := h.client.Do(req.WithContext(ctx))
+	resp, err := h.do(ctx, req)
 	if err != nil {
 		return err
 	}

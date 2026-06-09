@@ -19,9 +19,9 @@ func (r *AudioResource) Synthesize(ctx context.Context, params SpeechParams) ([]
 
 // Transcribe sends POST /v1/audio/transcriptions as a multipart upload.
 func (r *AudioResource) Transcribe(ctx context.Context, fileData []byte, filename string, params TranscriptionParams) (*TranscriptionResponse, error) {
-	fields := transcriptionParamsToFields(params)
+	fields, multiValueFields := transcriptionParamsToFields(params)
 	var out TranscriptionResponse
-	if err := r.http.postMultipart(ctx, "/v1/audio/transcriptions", fields, fileData, filename, &out); err != nil {
+	if err := r.http.postMultipart(ctx, "/v1/audio/transcriptions", fields, multiValueFields, fileData, filename, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -48,7 +48,7 @@ func (r *AudioResource) Translate(ctx context.Context, fileData []byte, filename
 		}
 	}
 	var out TranscriptionResponse
-	if err := r.http.postMultipart(ctx, "/v1/audio/transcriptions/translate", fields, fileData, filename, &out); err != nil {
+	if err := r.http.postMultipart(ctx, "/v1/audio/transcriptions/translate", fields, nil, fileData, filename, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -102,7 +102,7 @@ func (r *AudioResource) GetVoice(ctx context.Context, voiceID string) (map[strin
 	return out, nil
 }
 
-func transcriptionParamsToFields(p TranscriptionParams) map[string]string {
+func transcriptionParamsToFields(p TranscriptionParams) (map[string]string, map[string][]string) {
 	fields := map[string]string{
 		"model": p.Model,
 	}
@@ -175,5 +175,12 @@ func transcriptionParamsToFields(p TranscriptionParams) map[string]string {
 	if p.DebugMode != nil {
 		fields["debug_mode"] = strconv.FormatBool(*p.DebugMode)
 	}
-	return fields
+
+	var multiValueFields map[string][]string
+	if len(p.Keyterms) > 0 {
+		multiValueFields = map[string][]string{
+			"keyterms": p.Keyterms,
+		}
+	}
+	return fields, multiValueFields
 }

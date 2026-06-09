@@ -94,9 +94,6 @@ result, err := client.Audio.Transcribe(ctx, meshapi.TranscriptionParams{
 })
 fmt.Println(result.Text)
 
-// Retrieve a previously submitted transcription
-result, err = client.Audio.GetTranscription(ctx, "transcription-id")
-
 // Translate audio to English
 translated, err := client.Audio.Translate(ctx, meshapi.TranscriptionParams{
     Model:    "sarvam/saaras:v3",
