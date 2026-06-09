@@ -65,6 +65,8 @@ type Client struct {
 	Images    *ImagesResource
 	RAG       *RagResource
 	Realtime  *RealtimeResource
+	Audio     *AudioResource
+	Videos    *VideosResource
 }
 
 // New creates a new MeshAPI client with the given configuration.
@@ -83,5 +85,7 @@ func New(cfg Config) *Client {
 		Images:     &ImagesResource{http: http},
 		RAG:        &RagResource{http: http},
 		Realtime:   &RealtimeResource{http: http},
+		Audio:      &AudioResource{http: http},
+		Videos:     &VideosResource{http: http},
 	}
 }

@@ -118,6 +118,35 @@ go test -run TestLive_RAG -v -timeout 300s
 | `rag_test.go` | RAG upload → embed → list → search |
 | `realtime_test.go` | WebSocket connect/close, session.created, session.update, error envelopes, Events() channel API, context cancel |
 
+### Available live test files (updated)
+
+| File | What it tests |
+|------|---------------|
+| `chat_test.go` | Chat completions (basic, tools, multi-turn) |
+| `stream_test.go` | Streaming chat and responses |
+| `models_test.go` | Model listing |
+| `templates_test.go` | Template CRUD lifecycle |
+| `inference_test.go` | Embeddings, responses |
+| `errors_test.go` | 401/404 error handling |
+| `feature_matrix_test.go` | Cross-model feature matrix |
+| `rag_test.go` | RAG upload → embed → list → search |
+| `realtime_test.go` | WebSocket connect/close, session lifecycle |
+| `audio_test.go` | TTS synthesize, voice listing |
+| `video_test.go` | Video list, generate → retrieve |
+
+---
+
+## Contribution checklist
+
+Every SDK change — however small — must include all of the following before merging:
+
+1. **Live tests** — add or update `livetests/<resource>_test.go` to cover the new/changed behaviour.
+2. **Unit / contract tests** — if the change affects types or HTTP transport, add a test in `*_test.go` files in the root package.
+3. **README** — update `README.md` with a usage example for any new or changed public surface.
+4. **meshapi-docs** — open a follow-up PR (or note in the PR description) to update the [meshapi-docs](https://github.com/aifiesta/meshapi-docs) repository so the developer documentation stays in sync.
+
+---
+
 ### RAG live test notes
 
 `TestLive_RAG_UploadAndSearch` does the following:

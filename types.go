@@ -593,6 +593,206 @@ type SearchResponse struct {
 }
 
 // ---------------------------------------------------------------------------
+// Audio
+// ---------------------------------------------------------------------------
+
+type VoiceSettings struct {
+	Stability       *float64 `json:"stability,omitempty"`
+	SimilarityBoost *float64 `json:"similarity_boost,omitempty"`
+	Style           *float64 `json:"style,omitempty"`
+	UseSpeakerBoost *bool    `json:"use_speaker_boost,omitempty"`
+	Speed           *float64 `json:"speed,omitempty"`
+}
+
+type PronunciationDictionaryLocator struct {
+	PronunciationDictionaryID string `json:"pronunciation_dictionary_id"`
+	VersionID                 string `json:"version_id"`
+}
+
+type SpeechParams struct {
+	Input                           string                           `json:"input"`
+	Model                           *string                          `json:"model,omitempty"`
+	Voice                           *string                          `json:"voice,omitempty"`
+	Stream                          *bool                            `json:"stream,omitempty"`
+	ResponseFormat                  *string                          `json:"response_format,omitempty"`
+	LanguageCode                    *string                          `json:"language_code,omitempty"`
+	VoiceSettings                   *VoiceSettings                   `json:"voice_settings,omitempty"`
+	PronunciationDictionaryLocators []PronunciationDictionaryLocator `json:"pronunciation_dictionary_locators,omitempty"`
+	Seed                            *int                             `json:"seed,omitempty"`
+	PreviousText                    *string                          `json:"previous_text,omitempty"`
+	NextText                        *string                          `json:"next_text,omitempty"`
+	PreviousRequestIDs              []string                         `json:"previous_request_ids,omitempty"`
+	NextRequestIDs                  []string                         `json:"next_request_ids,omitempty"`
+	ApplyTextNormalization          *string                          `json:"apply_text_normalization,omitempty"`
+	ApplyLanguageTextNormalization  *bool                            `json:"apply_language_text_normalization,omitempty"`
+	UsePvcAsIvc                     *bool                            `json:"use_pvc_as_ivc,omitempty"`
+	EnableLogging                   *bool                            `json:"enable_logging,omitempty"`
+	OptimizeStreamingLatency        *int                             `json:"optimize_streaming_latency,omitempty"`
+	Speaker                         *string                          `json:"speaker,omitempty"`
+	TargetLanguageCode              *string                          `json:"target_language_code,omitempty"`
+	Pitch                           *float64                         `json:"pitch,omitempty"`
+	Pace                            *float64                         `json:"pace,omitempty"`
+	Loudness                        *float64                         `json:"loudness,omitempty"`
+	SpeechSampleRate                *int                             `json:"speech_sample_rate,omitempty"`
+	EnablePreprocessing             *bool                            `json:"enable_preprocessing,omitempty"`
+}
+
+type TranscriptionParams struct {
+	Model                 string   `json:"model"`
+	LanguageCode          *string  `json:"language_code,omitempty"`
+	TagAudioEvents        *bool    `json:"tag_audio_events,omitempty"`
+	NumSpeakers           *int     `json:"num_speakers,omitempty"`
+	TimestampsGranularity *string  `json:"timestamps_granularity,omitempty"`
+	Diarize               *bool    `json:"diarize,omitempty"`
+	DiarizationThreshold  *float64 `json:"diarization_threshold,omitempty"`
+	AdditionalFormats     *string  `json:"additional_formats,omitempty"`
+	FileFormat            *string  `json:"file_format,omitempty"`
+	CloudStorageURL       *string  `json:"cloud_storage_url,omitempty"`
+	SourceURL             *string  `json:"source_url,omitempty"`
+	Webhook               *bool    `json:"webhook,omitempty"`
+	WebhookID             *string  `json:"webhook_id,omitempty"`
+	Temperature           *float64 `json:"temperature,omitempty"`
+	Seed                  *int     `json:"seed,omitempty"`
+	UseMultiChannel       *bool    `json:"use_multi_channel,omitempty"`
+	WebhookMetadata       *string  `json:"webhook_metadata,omitempty"`
+	EntityDetection       *string  `json:"entity_detection,omitempty"`
+	NoVerbatim            *bool    `json:"no_verbatim,omitempty"`
+	DetectSpeakerRoles    *bool    `json:"detect_speaker_roles,omitempty"`
+	EntityRedaction       *string  `json:"entity_redaction,omitempty"`
+	EntityRedactionMode   *string  `json:"entity_redaction_mode,omitempty"`
+	Keyterms              []string `json:"keyterms,omitempty"`
+	WithTimestamps        *bool    `json:"with_timestamps,omitempty"`
+	DebugMode             *bool    `json:"debug_mode,omitempty"`
+}
+
+type TranscriptionTranslateParams struct {
+	Model  *string `json:"model,omitempty"`
+	Prompt *string `json:"prompt,omitempty"`
+}
+
+type TranscriptionResponse struct {
+	Text string `json:"text"`
+}
+
+type ListVoicesParams struct {
+	NextPageToken     *string  `json:"next_page_token,omitempty"`
+	PageSize          *int     `json:"page_size,omitempty"`
+	Search            *string  `json:"search,omitempty"`
+	Sort              *string  `json:"sort,omitempty"`
+	SortDirection     *string  `json:"sort_direction,omitempty"`
+	VoiceType         *string  `json:"voice_type,omitempty"`
+	Category          *string  `json:"category,omitempty"`
+	IncludeTotalCount *bool    `json:"include_total_count,omitempty"`
+	VoiceIDs          []string `json:"voice_ids,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Video
+// ---------------------------------------------------------------------------
+
+// VideoContentItem is a single item in the content array.
+type VideoContentItem struct {
+	Type      string                 `json:"type"`
+	Text      *string                `json:"text,omitempty"`
+	ImageURL  map[string]interface{} `json:"image_url,omitempty"`
+	VideoURL  map[string]interface{} `json:"video_url,omitempty"`
+	AudioURL  map[string]interface{} `json:"audio_url,omitempty"`
+	DraftTask map[string]interface{} `json:"draft_task,omitempty"`
+	Role      *string                `json:"role,omitempty"`
+}
+
+// VideoGenerationParams is the request body for POST /v1/video/generations.
+type VideoGenerationParams struct {
+	Model                 string             `json:"model"`
+	Content               []VideoContentItem `json:"content"`
+	CallbackURL           *string            `json:"callback_url,omitempty"`
+	ReturnLastFrame       *bool              `json:"return_last_frame,omitempty"`
+	ServiceTier           *string            `json:"service_tier,omitempty"`
+	ExecutionExpiresAfter *int               `json:"execution_expires_after,omitempty"`
+	GenerateAudio         *bool              `json:"generate_audio,omitempty"`
+	Draft                 *bool              `json:"draft,omitempty"`
+	Resolution            *string            `json:"resolution,omitempty"`
+	Ratio                 *string            `json:"ratio,omitempty"`
+	Duration              *int               `json:"duration,omitempty"`
+	Frames                *int               `json:"frames,omitempty"`
+	Seed                  *int               `json:"seed,omitempty"`
+	CameraFixed           *bool              `json:"camera_fixed,omitempty"`
+	Watermark             *bool              `json:"watermark,omitempty"`
+	SafetyIdentifier      *string            `json:"safety_identifier,omitempty"`
+	Priority              *int               `json:"priority,omitempty"`
+}
+
+// CreateVideoGenerationResponse is the response from POST /v1/video/generations.
+type CreateVideoGenerationResponse struct {
+	ID string `json:"id"`
+}
+
+// VideoTaskError holds error details for a failed video task.
+type VideoTaskError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// VideoTaskContent holds the output URLs for a completed video task.
+type VideoTaskContent struct {
+	VideoURL     *string `json:"video_url,omitempty"`
+	LastFrameURL *string `json:"last_frame_url,omitempty"`
+}
+
+// VideoTaskUsage holds token usage for a video task.
+type VideoTaskUsage struct {
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
+// VideoTaskResponse is the shape of a single video generation task.
+type VideoTaskResponse struct {
+	ID                    string            `json:"id"`
+	Status                string            `json:"status"`
+	Model                 *string           `json:"model,omitempty"`
+	Error                 *VideoTaskError   `json:"error,omitempty"`
+	CreatedAt             *int64            `json:"created_at,omitempty"`
+	UpdatedAt             *int64            `json:"updated_at,omitempty"`
+	Content               *VideoTaskContent `json:"content,omitempty"`
+	Seed                  *int              `json:"seed,omitempty"`
+	Resolution            *string           `json:"resolution,omitempty"`
+	Ratio                 *string           `json:"ratio,omitempty"`
+	Duration              *int              `json:"duration,omitempty"`
+	Frames                *int              `json:"frames,omitempty"`
+	FramesPerSecond       *int              `json:"framespersecond,omitempty"`
+	GenerateAudio         *bool             `json:"generate_audio,omitempty"`
+	SafetyIdentifier      *string           `json:"safety_identifier,omitempty"`
+	Priority              *int              `json:"priority,omitempty"`
+	Draft                 *bool             `json:"draft,omitempty"`
+	DraftTaskID           *string           `json:"draft_task_id,omitempty"`
+	ServiceTier           *string           `json:"service_tier,omitempty"`
+	ExecutionExpiresAfter *int              `json:"execution_expires_after,omitempty"`
+	Usage                 *VideoTaskUsage   `json:"usage,omitempty"`
+}
+
+// ListVideoGenerationsParams holds query parameters for GET /v1/video/generations.
+type ListVideoGenerationsParams struct {
+	Status        *string `json:"status,omitempty"`
+	Model         *string `json:"model,omitempty"`
+	CreatedAfter  *string `json:"created_after,omitempty"`
+	CreatedBefore *string `json:"created_before,omitempty"`
+	Limit         *int    `json:"limit,omitempty"`
+	Offset        *int    `json:"offset,omitempty"`
+}
+
+// VideoTaskListResponse is the response from GET /v1/video/generations.
+type VideoTaskListResponse struct {
+	Object  string              `json:"object"`
+	Data    []VideoTaskResponse `json:"data"`
+	HasMore bool                `json:"has_more"`
+	Total   int                 `json:"total"`
+	Limit   int                 `json:"limit"`
+	Offset  int                 `json:"offset"`
+}
+
+// ---------------------------------------------------------------------------
 
 type ImageGenerationChunk struct {
 	ID      *string     `json:"id,omitempty"`
