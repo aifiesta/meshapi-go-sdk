@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -192,6 +193,73 @@ func (h *httpClient) getBytes(ctx context.Context, path string, params url.Value
 		return nil, newErrorFromResponse(resp)
 	}
 	return io.ReadAll(resp.Body)
+}
+
+// postBytes performs a POST request with a JSON body and returns the raw response bytes.
+func (h *httpClient) postBytes(ctx context.Context, path string, body interface{}) ([]byte, error) {
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.buildURL(path, nil), bytes.NewReader(buf))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := h.do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return nil, newErrorFromResponse(resp)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+// postMultipart sends a multipart/form-data POST.
+// fields contains string form values; fileData (if non-nil) is the file content for the "file" field.
+func (h *httpClient) postMultipart(ctx context.Context, path string, fields map[string]string, fileData []byte, filename string, dst interface{}) error {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+
+	for k, v := range fields {
+		if err := mw.WriteField(k, v); err != nil {
+			return fmt.Errorf("write field %s: %w", k, err)
+		}
+	}
+
+	if fileData != nil {
+		fw, err := mw.CreateFormFile("file", filename)
+		if err != nil {
+			return fmt.Errorf("create form file: %w", err)
+		}
+		if _, err := fw.Write(fileData); err != nil {
+			return fmt.Errorf("write file data: %w", err)
+		}
+	}
+
+	if err := mw.Close(); err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.buildURL(path, nil), &buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+h.cfg.Token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set(sdkVersionHeader, sdkVersionValue)
+
+	resp, err := h.client.Do(req.WithContext(ctx))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return newErrorFromResponse(resp)
+	}
+	return json.NewDecoder(resp.Body).Decode(dst)
 }
 
 func (h *httpClient) jsonRequest(ctx context.Context, method, path string, body interface{}, dst interface{}) error {
