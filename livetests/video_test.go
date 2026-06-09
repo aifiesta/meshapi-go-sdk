@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	meshapi "meshapi-go-sdk"
-	"github.com/stretchr/testify/require"
 )
 
 func TestVideo_List(t *testing.T) {
@@ -15,8 +14,12 @@ func TestVideo_List(t *testing.T) {
 	listing, err := client.Videos.List(context.Background(), &meshapi.ListVideoGenerationsParams{
 		Limit: &limit,
 	})
-	require.NoError(t, err)
-	require.NotNil(t, listing)
+	if err != nil {
+		t.Fatalf("Videos.List error: %v", err)
+	}
+	if listing == nil {
+		t.Fatal("Videos.List returned nil")
+	}
 	t.Logf("[PASS] Videos.List -> total=%d items=%d", listing.Total, len(listing.Data))
 }
 
@@ -33,12 +36,20 @@ func TestVideo_GenerateAndRetrieve(t *testing.T) {
 			{Type: "text", Text: &text},
 		},
 	})
-	require.NoError(t, err)
-	require.NotEmpty(t, resp.ID)
+	if err != nil {
+		t.Fatalf("Videos.Generate error: %v", err)
+	}
+	if resp.ID == "" {
+		t.Fatal("Videos.Generate returned empty task ID")
+	}
 	t.Logf("[PASS] Videos.Generate -> task_id=%s", resp.ID)
 
 	task, err := client.Videos.Retrieve(context.Background(), resp.ID)
-	require.NoError(t, err)
-	require.Equal(t, resp.ID, task.ID)
+	if err != nil {
+		t.Fatalf("Videos.Retrieve error: %v", err)
+	}
+	if task.ID != resp.ID {
+		t.Fatalf("task ID mismatch: got %s, want %s", task.ID, resp.ID)
+	}
 	t.Logf("[PASS] Videos.Retrieve -> status=%s", task.Status)
 }

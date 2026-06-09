@@ -72,6 +72,74 @@ emb, _ := client.Embeddings.Create(ctx, meshapi.EmbeddingsParams{
 })
 ```
 
+## Audio (TTS, STT, voices)
+
+```go
+// Text-to-speech — returns []byte of raw audio
+audioBytes, err := client.Audio.Synthesize(ctx, meshapi.SpeechParams{
+    Input: "Hello from MeshAPI.",
+    Model: "sarvam/bulbul:v2",
+    Voice: strPtr("meera"),
+})
+os.WriteFile("output.wav", audioBytes, 0644)
+
+// Speech-to-text — submit transcription job
+fileData, _ := os.ReadFile("audio.wav")
+lang := "en"
+result, err := client.Audio.Transcribe(ctx, meshapi.TranscriptionParams{
+    Model:    "sarvam/saaras:v3",
+    File:     fileData,
+    FileName: "audio.wav",
+    Language: &lang,
+})
+fmt.Println(result.Text)
+
+// Retrieve a previously submitted transcription
+result, err = client.Audio.GetTranscription(ctx, "transcription-id")
+
+// Translate audio to English
+translated, err := client.Audio.Translate(ctx, meshapi.TranscriptionParams{
+    Model:    "sarvam/saaras:v3",
+    File:     fileData,
+    FileName: "audio.wav",
+})
+fmt.Println(translated.Text)
+
+// List available voices
+pageSize := 10
+voices, err := client.Audio.ListVoices(ctx, meshapi.ListVoicesParams{PageSize: &pageSize})
+
+// Get a specific voice
+voice, err := client.Audio.GetVoice(ctx, "voice-id")
+```
+
+## Video generation
+
+```go
+// Submit a video generation task
+task, err := client.Videos.Generate(ctx, meshapi.VideoGenerationParams{
+    Model: "byteplus/dreamina-seedance-2-0",
+    Content: []meshapi.VideoContentItem{
+        {Type: "text", Text: strPtr("A serene mountain lake at sunrise")},
+    },
+})
+fmt.Println("Task ID:", task.ID)
+
+// Poll until complete
+for {
+    status, _ := client.Videos.Retrieve(ctx, task.ID)
+    if status.Status == "succeeded" || status.Status == "failed" {
+        break
+    }
+    time.Sleep(5 * time.Second)
+}
+
+// List past generation tasks
+limit := 20
+listing, err := client.Videos.List(ctx, meshapi.ListVideoGenerationsParams{Limit: &limit})
+fmt.Printf("%d total tasks\n", listing.Total)
+```
+
 ## Image generation
 
 ```go
