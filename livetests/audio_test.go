@@ -33,6 +33,36 @@ func TestAudio_Synthesize(t *testing.T) {
 	t.Logf("[PASS] audio.Synthesize -> %d bytes", len(audioBytes))
 }
 
+func TestAudio_STTFromTTS(t *testing.T) {
+	client := newClient(t)
+	model := ttsModel()
+	audioBytes, err := client.Audio.Synthesize(context.Background(), meshapi.SpeechParams{
+		Input: "Hello from MeshAPI audio test.",
+		Model: &model,
+	})
+	if err != nil {
+		t.Fatalf("TTS step failed: %v", err)
+	}
+	if len(audioBytes) == 0 {
+		t.Fatal("TTS step returned empty bytes; cannot proceed to STT")
+	}
+
+	sttModel := os.Getenv("MESHAPI_STT_MODEL")
+	if sttModel == "" {
+		sttModel = "sarvam/saaras:v3"
+	}
+	result, err := client.Audio.Transcribe(context.Background(), audioBytes, "tts_output.wav", meshapi.TranscriptionParams{
+		Model: sttModel,
+	})
+	if err != nil {
+		t.Fatalf("audio.Transcribe error: %v", err)
+	}
+	if result == nil || result.Text == "" {
+		t.Fatal("audio.Transcribe returned empty text")
+	}
+	t.Logf("[PASS] audio.Transcribe (via TTS audio) -> %q", result.Text)
+}
+
 func TestAudio_ListVoices(t *testing.T) {
 	client := newClient(t)
 	pageSize := 5
