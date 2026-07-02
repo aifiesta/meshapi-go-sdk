@@ -18,6 +18,10 @@ func parseSSEStream(resp *http.Response, chunkCh chan<- ChatCompletionChunk, err
 	defer close(errCh)
 
 	scanner := bufio.NewScanner(resp.Body)
+	// Raise the max token size well above bufio's 64KB default: a single SSE
+	// data line can carry a large payload (e.g. base64 image frames), which
+	// otherwise fails with "bufio.Scanner: token too long".
+	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 	var remainder strings.Builder
 
 	for scanner.Scan() {
@@ -109,6 +113,10 @@ func parseJSONSSEStream[T any](resp *http.Response, chunkCh chan<- T, errCh chan
 	defer close(errCh)
 
 	scanner := bufio.NewScanner(resp.Body)
+	// Raise the max token size well above bufio's 64KB default: a single SSE
+	// data line can carry a large payload (e.g. base64 image frames), which
+	// otherwise fails with "bufio.Scanner: token too long".
+	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 	var remainder strings.Builder
 
 	for scanner.Scan() {

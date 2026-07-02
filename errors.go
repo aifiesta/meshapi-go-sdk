@@ -85,14 +85,64 @@ func newErrorFromResponse(resp *http.Response) *MeshAPIError {
 		requestID = envelope.RequestID
 	}
 
+	// Fall back to a status-derived code and a FastAPI-style "detail" message
+	// when the body isn't the standard {"error": {...}} envelope (e.g.
+	// GET /v1/models/{id} 404s return {"detail": "..."}), so callers never get
+	// an empty Code/Message.
+	code := envelope.Error.Code
+	if code == "" {
+		code = statusErrorCode(status)
+	}
+	message := envelope.Error.Message
+	if message == "" {
+		var alt struct {
+			Detail interface{} `json:"detail"`
+		}
+		if json.Unmarshal(body, &alt) == nil {
+			if s, ok := alt.Detail.(string); ok && s != "" {
+				message = s
+			}
+		}
+		if message == "" {
+			message = fmt.Sprintf("HTTP %d", status)
+		}
+	}
+
 	return &MeshAPIError{
 		Status:            status,
-		Code:              envelope.Error.Code,
+		Code:              code,
 		RequestID:         requestID,
-		Message:           envelope.Error.Message,
+		Message:           message,
 		Details:           envelope.Error.Details,
 		ProviderError:     envelope.Error.ProviderError,
 		RetryAfterSeconds: envelope.Error.RetryAfterSeconds,
+	}
+}
+
+// statusErrorCode maps an HTTP status to a machine-readable code slug, used
+// when the response body doesn't carry one.
+func statusErrorCode(status int) string {
+	switch status {
+	case 400:
+		return "invalid_request"
+	case 401:
+		return "unauthorized"
+	case 402:
+		return "spend_limit_exceeded"
+	case 403:
+		return "forbidden"
+	case 404:
+		return "not_found"
+	case 409:
+		return "conflict"
+	case 422:
+		return "validation_error"
+	case 429:
+		return "rate_limit_exceeded"
+	case 500, 502, 503, 504:
+		return "upstream_error"
+	default:
+		return "http_error"
 	}
 }
 

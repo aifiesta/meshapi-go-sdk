@@ -122,6 +122,7 @@ type ChatCompletionParams struct {
 	Transforms       []string               `json:"transforms,omitempty"`
 	Models           []string               `json:"models,omitempty"`
 	User             *string                `json:"user,omitempty"`
+	ReasoningEffort  *string                `json:"reasoning_effort,omitempty"` // "high" | "medium" | "low" | "none"
 	Modality         *string                `json:"modality,omitempty"`
 	Image            *ImageOptions          `json:"image,omitempty"`
 	AsyncMode        *bool                  `json:"async_mode,omitempty"`
@@ -473,6 +474,8 @@ type BuiltinTool struct {
 type ResponsesParams struct {
 	Model           *string                `json:"model,omitempty"`
 	Input           interface{}            `json:"input"`
+	Background      *bool                  `json:"background,omitempty"`
+	Text            map[string]interface{} `json:"text,omitempty"`
 	Template        *string                `json:"template,omitempty"`
 	Variables       map[string]string      `json:"variables,omitempty"`
 	SessionID       *string                `json:"session_id,omitempty"`
@@ -548,6 +551,7 @@ type CompareParams struct {
 	ComparisonInstructions *string           `json:"comparison_instructions,omitempty"`
 	Temperature            *float64          `json:"temperature,omitempty"`
 	MaxTokens              *int              `json:"max_tokens,omitempty"`
+	Cache                  *bool             `json:"cache,omitempty"`
 	Stream                 *bool             `json:"stream,omitempty"`
 	Template               *string           `json:"template,omitempty"`
 	Variables              map[string]string `json:"variables,omitempty"`

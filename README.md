@@ -408,5 +408,5 @@ MESHAPI_TOKEN=rsk_... go test ./... -v -timeout 300s
 ## Versioning
 
 ```go
-fmt.Println(meshapi.Version) // "0.1.10"
+fmt.Println(meshapi.Version) // "0.1.11"
 ```

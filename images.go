@@ -1,9 +1,35 @@
 package meshapi
 
-import "context"
+import (
+	"context"
+	"encoding/base64"
+	"fmt"
+	"strings"
+)
 
 type ImagesResource struct {
 	http *httpClient
+}
+
+// Bytes returns the raw image bytes regardless of how the provider returned
+// them. It handles both B64JSON and a data: URI in URL (some models, e.g.
+// openai/gpt-image-1, inline the image as a data URL rather than populating
+// B64JSON). It returns an error for a remote http(s) URL (fetch it yourself)
+// or when no image data is present.
+func (i *ImageItem) Bytes() ([]byte, error) {
+	if i.B64JSON != nil && *i.B64JSON != "" {
+		return base64.StdEncoding.DecodeString(*i.B64JSON)
+	}
+	if i.URL != nil && strings.HasPrefix(*i.URL, "data:") {
+		parts := strings.SplitN(*i.URL, ",", 2)
+		if len(parts) == 2 {
+			return base64.StdEncoding.DecodeString(parts[1])
+		}
+	}
+	if i.URL != nil && *i.URL != "" {
+		return nil, fmt.Errorf("image is a remote URL; fetch it with an HTTP client: %s", *i.URL)
+	}
+	return nil, fmt.Errorf("image item has neither b64_json nor url")
 }
 
 // Generate sends a non-streaming image generation request and returns the full response.
