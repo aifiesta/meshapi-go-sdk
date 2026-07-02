@@ -1,17 +1,25 @@
 // Package meshapi provides a typed Go client for the MeshAPI AI model gateway.
 package meshapi
 
+import "encoding/json"
+
 // ---------------------------------------------------------------------------
 // Chat Completions
 // ---------------------------------------------------------------------------
 
 // ChatMessage represents a single message in the conversation.
 type ChatMessage struct {
-	Role       string      `json:"role"`
-	Content    interface{} `json:"content,omitempty"` // string or []ContentPart
-	Name       *string     `json:"name,omitempty"`
-	ToolCallID *string     `json:"tool_call_id,omitempty"`
-	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
+	Role             string                   `json:"role"`
+	Content          interface{}              `json:"content,omitempty"` // string or []ContentPart
+	Name             *string                  `json:"name,omitempty"`
+	ToolCallID       *string                  `json:"tool_call_id,omitempty"`
+	ToolCalls        []ToolCall               `json:"tool_calls,omitempty"`
+	ReasoningDetails []map[string]interface{} `json:"reasoning_details,omitempty"`
+}
+
+// VideoURL holds the URL for a video content part.
+type VideoURL struct {
+	URL string `json:"url"`
 }
 
 // ContentPart is one element of a multimodal message content array.
@@ -20,6 +28,8 @@ type ContentPart struct {
 	Text       *string     `json:"text,omitempty"`
 	ImageURL   *ImageURL   `json:"image_url,omitempty"`
 	InputAudio *InputAudio `json:"input_audio,omitempty"`
+	VideoURL   *VideoURL   `json:"video_url,omitempty"`
+	Fps        *string     `json:"fps,omitempty"`
 }
 
 // ImageURL holds the URL and rendering detail for an image content part.
@@ -28,16 +38,21 @@ type ImageURL struct {
 	Detail *string `json:"detail,omitempty"`
 }
 
+// InputAudio holds an audio content part. One of Data, URI, or URL must be
+// provided along with Format.
 type InputAudio struct {
-	Data   string `json:"data"`
-	Format string `json:"format"`
+	Data   *string `json:"data,omitempty"`
+	URI    *string `json:"uri,omitempty"`
+	URL    *string `json:"url,omitempty"`
+	Format string  `json:"format"`
 }
 
 // ToolCall represents a tool invocation in an assistant message.
 type ToolCall struct {
-	ID       string           `json:"id"`
-	Type     string           `json:"type"`
-	Function ToolCallFunction `json:"function"`
+	ID               string           `json:"id"`
+	Type             string           `json:"type"`
+	Function         ToolCallFunction `json:"function"`
+	ThoughtSignature *string          `json:"thought_signature,omitempty"`
 }
 
 // ToolCallFunction holds the name and JSON-encoded arguments for a tool call.
@@ -112,6 +127,8 @@ type ChatCompletionParams struct {
 	AsyncMode        *bool                  `json:"async_mode,omitempty"`
 	Modalities       []string               `json:"modalities,omitempty"`
 	Audio            *AudioOutputOptions    `json:"audio,omitempty"`
+	// Cache enables prompt caching for this request (null = server default).
+	Cache *bool `json:"cache,omitempty"`
 	// Timeout overrides the server's upstream-provider timeout (default 300 s).
 	// Set this for requests that may take longer than 5 minutes. This is
 	// independent of the SDK-level TimeoutMs option on Config, which controls
@@ -188,35 +205,97 @@ type ChatCompletionChunk struct {
 // Models
 // ---------------------------------------------------------------------------
 
-// ModelPricing holds per-token pricing for a model.
+// ModelPricing holds per-token pricing for a model. All values are strings per
+// the spec — do not coerce to float.
 type ModelPricing struct {
-	PromptUSDPer1K               *string `json:"prompt_usd_per_1k,omitempty"`
-	CompletionUSDPer1K           *string `json:"completion_usd_per_1k,omitempty"`
-	ImageUSDPerImage             *string `json:"image_usd_per_image,omitempty"`
-	DiscountPct                  *string `json:"discount_pct,omitempty"`
-	PromptUSDPer1KDiscounted     *string `json:"prompt_usd_per_1k_discounted,omitempty"`
-	CompletionUSDPer1KDiscounted *string `json:"completion_usd_per_1k_discounted,omitempty"`
+	// Required
+	PromptUSDPer1K     *string `json:"prompt_usd_per_1k,omitempty"`
+	CompletionUSDPer1K *string `json:"completion_usd_per_1k,omitempty"`
+	// Optional
+	PricingUnit                          *string `json:"pricing_unit,omitempty"`
+	PromptUSDPer1M                       *string `json:"prompt_usd_per_1m,omitempty"`
+	CompletionUSDPer1M                   *string `json:"completion_usd_per_1m,omitempty"`
+	ImageOutputUSDPerImage               *string `json:"image_output_usd_per_image,omitempty"`
+	RequestUSD                           *string `json:"request_usd,omitempty"`
+	LongContextInputUSDPer1M             *string `json:"long_context_input_usd_per_1m,omitempty"`
+	LongContextOutputUSDPer1M            *string `json:"long_context_output_usd_per_1m,omitempty"`
+	CacheReadInputUSDPer1M               *string `json:"cache_read_input_usd_per_1m,omitempty"`
+	CacheWriteInputUSDPer1M              *string `json:"cache_write_input_usd_per_1m,omitempty"`
+	CacheReadAudioInputUSDPer1M          *string `json:"cache_read_audio_input_usd_per_1m,omitempty"`
+	LongContextCacheReadInputUSDPer1M    *string `json:"long_context_cache_read_input_usd_per_1m,omitempty"`
+	LongContextCacheWriteInputUSDPer1M   *string `json:"long_context_cache_write_input_usd_per_1m,omitempty"`
+	BatchInputUSDPer1M                   *string `json:"batch_input_usd_per_1m,omitempty"`
+	BatchOutputUSDPer1M                  *string `json:"batch_output_usd_per_1m,omitempty"`
+	TrainingUSDPer1M                     *string `json:"training_usd_per_1m,omitempty"`
+	FineTunedInputUSDPer1M               *string `json:"fine_tuned_input_usd_per_1m,omitempty"`
+	FineTunedOutputUSDPer1M              *string `json:"fine_tuned_output_usd_per_1m,omitempty"`
+	AudioInputUSDPer1M                   *string `json:"audio_input_usd_per_1m,omitempty"`
+	AudioOutputUSDPer1M                  *string `json:"audio_output_usd_per_1m,omitempty"`
+	TranscriptionUSDPer1M                *string `json:"transcription_usd_per_1m,omitempty"`
+	CachedAudioInputUSDPer1M             *string `json:"cached_audio_input_usd_per_1m,omitempty"`
+	CachedTextInputUSDPer1M              *string `json:"cached_text_input_usd_per_1m,omitempty"`
+	CacheHitUSDPer1M                     *string `json:"cache_hit_usd_per_1m,omitempty"`
+	OutputWithAudioUSDPer1M              *string `json:"output_with_audio_usd_per_1m,omitempty"`
+	OutputWithVideoUSDPer1M              *string `json:"output_with_video_usd_per_1m,omitempty"`
+	ImageInputUSDPerImage                *string `json:"image_input_usd_per_image,omitempty"`
+	ImageOutputSize                      *string `json:"image_output_size,omitempty"`
+	EffectiveDate                        *string `json:"effective_date,omitempty"`
+	DeprecatedDate                       *string `json:"deprecated_date,omitempty"`
+	Notes                                *string `json:"notes,omitempty"`
+	SourceURL                            *string `json:"source_url,omitempty"`
+	DiscountPct                          *string `json:"discount_pct,omitempty"`
 }
 
 // ModelInfo describes an available model.
 type ModelInfo struct {
+	// Required fields
 	ID                     string        `json:"id"`
 	Name                   string        `json:"name"`
 	ContextLength          *int          `json:"context_length,omitempty"`
 	IsFree                 bool          `json:"is_free"`
 	Pricing                *ModelPricing `json:"pricing,omitempty"`
-	Description            *string       `json:"description,omitempty"`
-	SupportsThinking       *bool         `json:"supports_thinking,omitempty"`
-	SupportsCompletionsAPI *bool         `json:"supports_completions_api,omitempty"`
-	SupportsResponsesAPI   *bool         `json:"supports_responses_api,omitempty"`
-	ModelType              *string       `json:"model_type,omitempty"`
+	SupportsThinking       bool          `json:"supports_thinking"`
+	SupportsCompletionsAPI bool          `json:"supports_completions_api"`
+	SupportsResponsesAPI   bool          `json:"supports_responses_api"`
+	ModelType              string        `json:"model_type"`
 	InputModalities        []string      `json:"input_modalities,omitempty"`
 	OutputModalities       []string      `json:"output_modalities,omitempty"`
+	// Optional fields
+	Brand                          *string  `json:"brand,omitempty"`
+	Provider                       *string  `json:"provider,omitempty"`
+	Description                    *string  `json:"description,omitempty"`
+	SupportsRealtime               bool     `json:"supports_realtime"`
+	SupportsEmbeddings             bool     `json:"supports_embeddings"`
+	SupportsTools                  bool     `json:"supports_tools"`
+	SupportsStructuredOutput       bool     `json:"supports_structured_output"`
+	// SupportsSystemPrompt defaults to true in the spec (unlike the other
+	// supports_* flags which default to false), so it is a pointer: nil means
+	// the field was omitted and should be treated as true.
+	SupportsSystemPrompt           *bool    `json:"supports_system_prompt,omitempty"`
+	SupportsBatching               bool     `json:"supports_batching"`
+	SupportsBackgroundResponse     bool     `json:"supports_background_response"`
+	SupportsVideoGeneration        bool     `json:"supports_video_generation"`
+	SupportsImageEdit              bool     `json:"supports_image_edit"`
+	SupportsImageInpaint           bool     `json:"supports_image_inpaint"`
+	SupportsImageOutpaint          bool     `json:"supports_image_outpaint"`
+	SupportsImageMix               bool     `json:"supports_image_mix"`
+	SupportsImageReframe           bool     `json:"supports_image_reframe"`
+	SupportsImageUpscale           bool     `json:"supports_image_upscale"`
+	SupportsImageRemoveBackground  bool     `json:"supports_image_remove_background"`
+	SupportsImageReference         bool     `json:"supports_image_reference"`
+	ContextWindow                  *int     `json:"context_window,omitempty"`
+	StandardContextThreshold       *int     `json:"standard_context_threshold,omitempty"`
+	RealtimeSessionMaxTokens       *int     `json:"realtime_session_max_tokens,omitempty"`
+	RealtimeMaxConcurrentPerOwner  *int     `json:"realtime_max_concurrent_per_owner,omitempty"`
+	IsComposite                    bool     `json:"is_composite"`
+	CompositeModels                []string `json:"composite_models,omitempty"`
 }
 
 // ListModelsParams holds optional query parameters for listing models.
 type ListModelsParams struct {
-	Free *bool // nil = no filter
+	Free     *bool   // nil = no filter
+	Type     *string // "text" | "embedding" | "image" | "audio" | "video"
+	Provider *string // e.g. "openai", "amazon-bedrock", "vertex"
 }
 
 // ---------------------------------------------------------------------------
@@ -232,6 +311,8 @@ type CreateTemplateParams struct {
 	Model       *string                  `json:"model,omitempty"`
 	Params      map[string]interface{}   `json:"params,omitempty"`
 	Variables   []string                 `json:"variables,omitempty"`
+	// TeamID scopes the template to a specific team (optional).
+	TeamID *string `json:"team_id,omitempty"`
 }
 
 // UpdateTemplateParams is the request body for PATCH /v1/templates/{id}.
@@ -268,25 +349,106 @@ type ProviderPreferences struct {
 	DataCollection    *string  `json:"data_collection,omitempty"`
 }
 
+// ImageEmbeddingUrl holds a URL for a multimodal image embedding input.
+type ImageEmbeddingUrl struct {
+	URL string `json:"url"`
+}
+
+// VideoEmbeddingUrl holds a URL for a multimodal video embedding input.
+type VideoEmbeddingUrl struct {
+	URL string `json:"url"`
+}
+
+// MultimodalEmbeddingInput is one element of a multimodal embeddings input
+// array. Type is one of "text", "image_url", or "video_url".
+type MultimodalEmbeddingInput struct {
+	Type     string             `json:"type"`
+	Text     *string            `json:"text,omitempty"`
+	ImageURL *ImageEmbeddingUrl `json:"image_url,omitempty"`
+	VideoURL *VideoEmbeddingUrl `json:"video_url,omitempty"`
+}
+
 type EmbeddingsParams struct {
-	Model          *string     `json:"model,omitempty"`
-	Input          interface{} `json:"input"`
-	Dimensions     *int        `json:"dimensions,omitempty"`
-	EncodingFormat *string     `json:"encoding_format,omitempty"`
-	InputType      *string     `json:"input_type,omitempty"`
-	Provider       interface{} `json:"provider,omitempty"`
-	User           *string     `json:"user,omitempty"`
+	Model           *string     `json:"model,omitempty"`
+	Input           interface{} `json:"input"` // string | []string | []int | [][]int | []MultimodalEmbeddingInput
+	Dimensions      *int        `json:"dimensions,omitempty"`
+	EncodingFormat  *string     `json:"encoding_format,omitempty"` // "float" | "base64"
+	InputType       *string     `json:"input_type,omitempty"`
+	Provider        interface{} `json:"provider,omitempty"`
+	User            *string     `json:"user,omitempty"`
+	Instructions    *string     `json:"instructions,omitempty"`
+	SparseEmbedding map[string]interface{} `json:"sparse_embedding,omitempty"`
+}
+
+// EmbeddingVector holds an embedding value that can be either a float array
+// (encoding_format=float, the default) or a base64 string
+// (encoding_format=base64). Use Floats() or Base64() to access the value.
+type EmbeddingVector struct {
+	floats []float64
+	base64 string
+	isB64  bool
+}
+
+// UnmarshalJSON implements json.Unmarshaler. It accepts both a JSON array of
+// floats and a JSON string (base64-encoded embedding).
+func (e *EmbeddingVector) UnmarshalJSON(data []byte) error {
+	// Try float array first (most common case).
+	var floats []float64
+	if err := json.Unmarshal(data, &floats); err == nil {
+		e.floats = floats
+		e.isB64 = false
+		return nil
+	}
+	// Fall back to string (base64).
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	e.base64 = s
+	e.isB64 = true
+	return nil
+}
+
+// MarshalJSON implements json.Marshaler.
+func (e EmbeddingVector) MarshalJSON() ([]byte, error) {
+	if e.isB64 {
+		return json.Marshal(e.base64)
+	}
+	return json.Marshal(e.floats)
+}
+
+// Floats returns the embedding as a float slice. Returns nil if the embedding
+// is base64-encoded.
+func (e *EmbeddingVector) Floats() []float64 {
+	if e.isB64 {
+		return nil
+	}
+	return e.floats
+}
+
+// Base64 returns the base64-encoded embedding string. Returns "" if the
+// embedding is a float array.
+func (e *EmbeddingVector) Base64() string {
+	if !e.isB64 {
+		return ""
+	}
+	return e.base64
+}
+
+// IsBase64 reports whether this embedding was returned as a base64 string.
+func (e *EmbeddingVector) IsBase64() bool {
+	return e.isB64
 }
 
 type EmbeddingItem struct {
-	Object    string    `json:"object"`
-	Index     int       `json:"index"`
-	Embedding []float64 `json:"embedding"`
+	Object    string          `json:"object"`
+	Index     int             `json:"index"`
+	Embedding EmbeddingVector `json:"embedding"`
 }
 
 type EmbeddingsUsage struct {
-	PromptTokens int `json:"prompt_tokens"`
-	TotalTokens  int `json:"total_tokens"`
+	PromptTokens *int `json:"prompt_tokens,omitempty"`
+	TotalTokens  *int `json:"total_tokens,omitempty"`
 }
 
 type EmbeddingsResponse struct {
@@ -325,6 +487,25 @@ type ResponsesParams struct {
 	ResponseFormat  map[string]interface{} `json:"response_format,omitempty"`
 	Plugins         []interface{}          `json:"plugins,omitempty"`
 	User            *string                `json:"user,omitempty"`
+	// Fields added in pass-2 audit — all optional/nullable per spec.
+	// PreviousResponseID chains this response to a prior one for multi-turn.
+	PreviousResponseID *string `json:"previous_response_id,omitempty"`
+	// Instructions overrides the system-level instructions for this request.
+	Instructions *string `json:"instructions,omitempty"`
+	// Thinking is a free-form object controlling chain-of-thought (model-specific).
+	Thinking map[string]interface{} `json:"thinking,omitempty"`
+	// Caching is a free-form object with prompt-caching settings.
+	Caching map[string]interface{} `json:"caching,omitempty"`
+	// Store controls whether the response is persisted for later retrieval.
+	Store *bool `json:"store,omitempty"`
+	// Include lists additional output fields to return (model-specific).
+	Include []interface{} `json:"include,omitempty"`
+	// ExpireAt is a Unix timestamp after which the stored response may be deleted.
+	ExpireAt *int64 `json:"expire_at,omitempty"`
+	// MaxToolCalls limits the number of tool calls permitted (1..10).
+	MaxToolCalls *int `json:"max_tool_calls,omitempty"`
+	// ContextManagement is a free-form object for context window management.
+	ContextManagement map[string]interface{} `json:"context_management,omitempty"`
 	// Timeout overrides the server's upstream-provider timeout (default 300 s).
 	Timeout *float64 `json:"timeout,omitempty"`
 }
@@ -421,17 +602,24 @@ type CreateBatchParams struct {
 }
 
 type BatchObject struct {
-	ID           string  `json:"id"`
-	Object       *string `json:"object,omitempty"`
-	Endpoint     *string `json:"endpoint,omitempty"`
-	InputFileID  *string `json:"input_file_id,omitempty"`
-	OutputFileID *string `json:"output_file_id,omitempty"`
-	Status       string  `json:"status"`
-	Model        *string `json:"model,omitempty"`
-	Provider     *string `json:"provider,omitempty"`
-	CreatedAt    *int64  `json:"created_at,omitempty"`
-	CompletedAt  *int64  `json:"completed_at,omitempty"`
-	UsageSynced  *bool   `json:"usage_synced,omitempty"`
+	ID               string                   `json:"id"`
+	Object           *string                  `json:"object,omitempty"`
+	Endpoint         *string                  `json:"endpoint,omitempty"`
+	InputFileID      *string                  `json:"input_file_id,omitempty"`
+	OutputFileID     *string                  `json:"output_file_id,omitempty"`
+	ErrorFileID      *string                  `json:"error_file_id,omitempty"`
+	Status           string                   `json:"status"`
+	Model            *string                  `json:"model,omitempty"`
+	Provider         *string                  `json:"provider,omitempty"`
+	CreatedAt        *int64                   `json:"created_at,omitempty"`
+	CompletedAt      *int64                   `json:"completed_at,omitempty"`
+	ExpiresAt        *int64                   `json:"expires_at,omitempty"`
+	UsageSynced      *bool                    `json:"usage_synced,omitempty"`
+	CompletionWindow *string                  `json:"completion_window,omitempty"`
+	RequestCounts    map[string]interface{}   `json:"request_counts,omitempty"`
+	Metadata         map[string]interface{}   `json:"metadata,omitempty"`
+	Results          []map[string]interface{} `json:"results,omitempty"`
+	ErrorsDetail     []map[string]interface{} `json:"errors_detail,omitempty"`
 }
 
 type BatchListResponse struct {
@@ -452,9 +640,23 @@ type ImageGenerationParams struct {
 	N              *int    `json:"n,omitempty"`
 	Size           *string `json:"size,omitempty"`
 	Quality        *string `json:"quality,omitempty"`
-	ResponseFormat *string `json:"response_format,omitempty"`
-	OutputFormat   *string `json:"output_format,omitempty"`
+	ResponseFormat *string `json:"response_format,omitempty"` // "url" | "b64_json"
+	OutputFormat   *string `json:"output_format,omitempty"`   // "png" | "jpeg" | "webp"
 	Stream         *bool   `json:"stream,omitempty"`
+	// Additional spec fields
+	AspectRatio                        *string                `json:"aspect_ratio,omitempty"`
+	Resolution                         *string                `json:"resolution,omitempty"`
+	OutputCompression                  *int                   `json:"output_compression,omitempty"` // 0..100
+	Background                         *string                `json:"background,omitempty"`         // "transparent"|"opaque"|"auto"
+	Moderation                         *string                `json:"moderation,omitempty"`         // "low"|"auto"
+	PartialImages                      *int                   `json:"partial_images,omitempty"`     // 0..3
+	Image                              interface{}            `json:"image,omitempty"`              // string or []string
+	Seed                               *int                   `json:"seed,omitempty"`               // -1..2147483647
+	SequentialImageGeneration          *string                `json:"sequential_image_generation,omitempty"`         // "auto"|"disabled"
+	SequentialImageGenerationOptions   map[string]interface{} `json:"sequential_image_generation_options,omitempty"`
+	GuidanceScale                      *float64               `json:"guidance_scale,omitempty"` // 1..10
+	Watermark                          *bool                  `json:"watermark,omitempty"`
+	OptimizePromptOptions              map[string]interface{} `json:"optimize_prompt_options,omitempty"`
 }
 
 type ImageItem struct {
@@ -668,6 +870,17 @@ type TranscriptionParams struct {
 type TranscriptionTranslateParams struct {
 	Model  *string `json:"model,omitempty"`
 	Prompt *string `json:"prompt,omitempty"`
+}
+
+// AudioTranslationParams is the request body for POST /v1/audio/translations
+// (standalone translation endpoint, distinct from /v1/audio/transcriptions/translate).
+// Model and File (via fileData/filename in the method call) are required.
+type AudioTranslationParams struct {
+	// Model is required — the translation model to use.
+	Model          string   `json:"model"`
+	Prompt         *string  `json:"prompt,omitempty"`
+	ResponseFormat *string  `json:"response_format,omitempty"`
+	Temperature    *float64 `json:"temperature,omitempty"`
 }
 
 type TranscriptionResponse struct {
@@ -896,7 +1109,7 @@ type WebSearchResponse struct {
 
 type RouterSelectParams struct {
 	Messages      []ChatMessage `json:"messages"`
-	APIType       *string       `json:"api_type,omitempty"` // "completions"
+	APIType       *string       `json:"api_type,omitempty"` // "completions" (default) | "responses" | "embeddings"
 	ExcludeModels []string      `json:"exclude_models,omitempty"`
 }
 
@@ -992,4 +1205,61 @@ type ImageEditParams struct {
 	Resolution      *string     `json:"resolution,omitempty"`
 	ExpandFactor    interface{} `json:"expand_factor,omitempty"` // string or float64
 	MaskFeather     *int        `json:"mask_feather,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// Documents — GET /v1/documents, POST /v1/documents/generate,
+//             GET /v1/documents/{document_id}
+// ---------------------------------------------------------------------------
+
+// DocumentFormatPDF and siblings are valid values for GenerateDocumentRequest.Format.
+const (
+	DocumentFormatPDF  = "pdf"
+	DocumentFormatDOCX = "docx"
+	DocumentFormatPPTX = "pptx"
+	DocumentFormatCSV  = "csv"
+	DocumentFormatXLSX = "xlsx"
+)
+
+// GenerateDocumentRequest is the request body for POST /v1/documents/generate.
+type GenerateDocumentRequest struct {
+	// Format is required. One of: pdf, docx, pptx, csv, xlsx.
+	Format   string                 `json:"format"`
+	// Prompt is required (1–50 000 characters).
+	Prompt   string                 `json:"prompt"`
+	// Model defaults to "google/gemini-2.5-flash-lite" when omitted.
+	Model    string                 `json:"model,omitempty"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// DocumentResponse is the response shape for both generate and retrieve.
+type DocumentResponse struct {
+	DocumentID        string  `json:"document_id"`
+	Status            string  `json:"status"`
+	Format            string  `json:"format"`
+	Model             string  `json:"model"`
+	Title             *string `json:"title,omitempty"`
+	DownloadURL       *string `json:"download_url,omitempty"`
+	ExpiresAt         *string `json:"expires_at,omitempty"` // ISO 8601 date-time
+	SizeBytes         *int64  `json:"size_bytes,omitempty"`
+	PromptTokens      *int    `json:"prompt_tokens,omitempty"`
+	CompletionTokens  *int    `json:"completion_tokens,omitempty"`
+	TotalTokens       *int    `json:"total_tokens,omitempty"`
+	FailureReason     *string `json:"failure_reason,omitempty"`
+	CreatedAt         *string `json:"created_at,omitempty"` // ISO 8601 date-time
+	UpdatedAt         *string `json:"updated_at,omitempty"` // ISO 8601 date-time
+}
+
+// DocumentListResponse is returned by GET /v1/documents.
+type DocumentListResponse struct {
+	Documents []DocumentResponse `json:"documents"`
+	Total     int                `json:"total"`
+	Limit     int                `json:"limit"`
+	Offset    int                `json:"offset"`
+}
+
+// ListDocumentsParams holds optional query parameters for listing documents.
+type ListDocumentsParams struct {
+	Limit  *int // 1–200, server default 50
+	Offset *int // >=0, server default 0
 }

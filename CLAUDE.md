@@ -18,13 +18,12 @@ go/
 ├── chat.go            # /v1/chat/completions
 ├── responses.go       # /v1/responses
 ├── embeddings.go      # /v1/embeddings
-├── compare.go         # /v1/compare
-├── files.go           # /v1/files (batch file objects)
-├── rag.go             # /v1/files RAG endpoints (upload, embed, search)
+├── compare.go         # /v1/chat/compare
+├── rag.go             # /v1/files RAG endpoints (upload, list, get status, embed, search)
 ├── batches.go         # /v1/batches
 ├── models.go          # /v1/models
 ├── templates.go       # /v1/templates
-├── images.go          # /v1/images/generations
+├── images.go          # /v1/images/generations, /v1/images/edits
 ├── *_test.go          # Unit / contract / integration tests
 └── livetests/         # Live tests against a real backend
 ```
@@ -134,6 +133,7 @@ go test -run TestLive_RAG -v -timeout 300s
 | `audio_test.go` | TTS synthesize, voice listing |
 | `video_test.go` | Video list, generate → retrieve |
 | `compare_test.go` | Non-streaming compare, streaming compare |
+| `moderations_test.go` | Moderation classify: text and multimodal input |
 
 ---
 

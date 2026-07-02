@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 // ModelsResource provides access to the /v1/models endpoints.
@@ -11,7 +12,8 @@ type ModelsResource struct {
 	http *httpClient
 }
 
-// List returns all available models. Pass a non-nil Free pointer to filter.
+// List returns all available models. Pass optional params to filter by free,
+// type, or provider.
 func (r *ModelsResource) List(ctx context.Context, params ListModelsParams) ([]ModelInfo, error) {
 	qs := url.Values{}
 	if params.Free != nil {
@@ -20,6 +22,12 @@ func (r *ModelsResource) List(ctx context.Context, params ListModelsParams) ([]M
 		} else {
 			qs.Set("free", "false")
 		}
+	}
+	if params.Type != nil {
+		qs.Set("type", *params.Type)
+	}
+	if params.Provider != nil {
+		qs.Set("provider", *params.Provider)
 	}
 	var models []ModelInfo
 	if err := r.http.get(ctx, "/v1/models", qs, &models); err != nil {
@@ -87,9 +95,18 @@ func (r *ModelsResource) Search(ctx context.Context, params ModelSearchParams) (
 }
 
 // Get returns a single model's detail by id (e.g. "openai/gpt-4o").
+// The modelID may contain slashes (which are preserved); other special
+// characters are percent-encoded per segment.
 func (r *ModelsResource) Get(ctx context.Context, modelID string) (*ModelInfo, error) {
 	var m ModelInfo
-	if err := r.http.get(ctx, "/v1/models/"+modelID, nil, &m); err != nil {
+	// Encode each path segment individually so that "/" in the model ID remains
+	// a literal slash (required for "brand/model" style IDs) while other
+	// reserved characters like spaces, %, ?, # are properly escaped.
+	segments := strings.Split(modelID, "/")
+	for i, s := range segments {
+		segments[i] = url.PathEscape(s)
+	}
+	if err := r.http.get(ctx, "/v1/models/"+strings.Join(segments, "/"), nil, &m); err != nil {
 		return nil, err
 	}
 	return &m, nil

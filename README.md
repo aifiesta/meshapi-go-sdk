@@ -99,13 +99,16 @@ result, err := client.Audio.Transcribe(ctx, meshapi.TranscriptionParams{
 })
 fmt.Println(result.Text)
 
-// Translate audio to English
-translated, err := client.Audio.Translate(ctx, meshapi.TranscriptionParams{
-    Model:    "sarvam/saaras:v3",
-    File:     fileData,
-    FileName: "audio.wav",
-})
+// Translate audio to English via /v1/audio/transcriptions/translate
+translated, err := client.Audio.Translate(ctx, fileData, "audio.wav", &meshapi.TranscriptionTranslateParams{})
 fmt.Println(translated.Text)
+
+// Standalone audio translation via POST /v1/audio/translations
+// (distinct endpoint from Translate above)
+translated2, err := client.Audio.Translations(ctx, fileData, "audio.wav", meshapi.AudioTranslationParams{
+    Model: "whisper-1",
+})
+fmt.Println(translated2.Text)
 
 // List available voices
 pageSize := 10
