@@ -37,6 +37,7 @@ func (r *AudioResource) GetTranscription(ctx context.Context, transcriptionID st
 }
 
 // Translate sends POST /v1/audio/transcriptions/translate as a multipart upload.
+// Use Translations for the standalone POST /v1/audio/translations endpoint.
 func (r *AudioResource) Translate(ctx context.Context, fileData []byte, filename string, params *TranscriptionTranslateParams) (*TranscriptionResponse, error) {
 	fields := map[string]string{}
 	if params != nil {
@@ -49,6 +50,32 @@ func (r *AudioResource) Translate(ctx context.Context, fileData []byte, filename
 	}
 	var out TranscriptionResponse
 	if err := r.http.postMultipart(ctx, "/v1/audio/transcriptions/translate", fields, nil, fileData, filename, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Translations sends POST /v1/audio/translations — the standalone audio
+// translation endpoint (operationId: create_translation_v1_audio_translations_post).
+// This is distinct from Translate (POST /v1/audio/transcriptions/translate).
+// fileData is the raw audio bytes; filename is used for the Content-Disposition
+// header. params.Model is required; prompt, response_format, and temperature are
+// optional. Returns a TranscriptionResponse containing the translated text.
+func (r *AudioResource) Translations(ctx context.Context, fileData []byte, filename string, params AudioTranslationParams) (*TranscriptionResponse, error) {
+	fields := map[string]string{
+		"model": params.Model,
+	}
+	if params.Prompt != nil {
+		fields["prompt"] = *params.Prompt
+	}
+	if params.ResponseFormat != nil {
+		fields["response_format"] = *params.ResponseFormat
+	}
+	if params.Temperature != nil {
+		fields["temperature"] = strconv.FormatFloat(*params.Temperature, 'f', -1, 64)
+	}
+	var out TranscriptionResponse
+	if err := r.http.postMultipart(ctx, "/v1/audio/translations", fields, nil, fileData, filename, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

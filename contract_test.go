@@ -119,3 +119,241 @@ func TestContract_Error429WithRetryAfter(t *testing.T) {
 		t.Errorf("expected retry_after_seconds=5, got %v", env.Error.RetryAfterSeconds)
 	}
 }
+
+func TestContract_EmbeddingVector_Float(t *testing.T) {
+	data := loadFixture(t, "embedding_response_float.json")
+	var resp EmbeddingsResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		t.Fatalf("unmarshal float embedding: %v", err)
+	}
+	if len(resp.Data) != 1 {
+		t.Fatalf("expected 1 embedding item, got %d", len(resp.Data))
+	}
+	item := resp.Data[0]
+	if item.Embedding.IsBase64() {
+		t.Error("expected float embedding, got base64")
+	}
+	floats := item.Embedding.Floats()
+	if len(floats) != 4 {
+		t.Fatalf("expected 4 floats, got %d", len(floats))
+	}
+	if floats[0] != 0.1 {
+		t.Errorf("expected floats[0]=0.1, got %v", floats[0])
+	}
+}
+
+func TestContract_EmbeddingVector_Base64(t *testing.T) {
+	data := loadFixture(t, "embedding_response_base64.json")
+	var resp EmbeddingsResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		t.Fatalf("unmarshal base64 embedding: %v", err)
+	}
+	if len(resp.Data) != 1 {
+		t.Fatalf("expected 1 embedding item, got %d", len(resp.Data))
+	}
+	item := resp.Data[0]
+	if !item.Embedding.IsBase64() {
+		t.Error("expected base64 embedding, got float array")
+	}
+	b64 := item.Embedding.Base64()
+	if b64 == "" {
+		t.Error("expected non-empty base64 string")
+	}
+	if item.Embedding.Floats() != nil {
+		t.Error("Floats() should return nil for base64 embedding")
+	}
+}
+
+func TestContract_BatchObject_WithResults(t *testing.T) {
+	data := loadFixture(t, "batch_completed.json")
+	var batch BatchObject
+	if err := json.Unmarshal(data, &batch); err != nil {
+		t.Fatalf("unmarshal batch: %v", err)
+	}
+	if batch.ID != "batch_abc123" {
+		t.Errorf("expected id 'batch_abc123', got %q", batch.ID)
+	}
+	if batch.Status != "completed" {
+		t.Errorf("expected status 'completed', got %q", batch.Status)
+	}
+	if len(batch.Results) != 2 {
+		t.Errorf("expected 2 results, got %d", len(batch.Results))
+	}
+	if batch.Results[0]["custom_id"] != "req-1" {
+		t.Errorf("expected results[0].custom_id='req-1', got %v", batch.Results[0]["custom_id"])
+	}
+	if batch.CompletionWindow == nil || *batch.CompletionWindow != "24h" {
+		t.Errorf("expected completion_window='24h', got %v", batch.CompletionWindow)
+	}
+	if batch.RequestCounts == nil {
+		t.Error("expected non-nil request_counts")
+	}
+}
+
+// TestContract_AudioTranslationResponse verifies that TranscriptionResponse
+// unmarshals correctly — used by both Translate and the new Translations method.
+func TestContract_AudioTranslationResponse(t *testing.T) {
+	data := loadFixture(t, "audio_translation_response.json")
+	var resp TranscriptionResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.Text != "Hello, this is a translated audio message." {
+		t.Errorf("unexpected text: %q", resp.Text)
+	}
+}
+
+// TestContract_AudioTranslationParams verifies that AudioTranslationParams
+// round-trips correctly and that optional fields are omitted when nil.
+func TestContract_AudioTranslationParams(t *testing.T) {
+	model := "whisper-1"
+	params := AudioTranslationParams{Model: model}
+	data, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	// prompt, response_format, temperature must not appear
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("unmarshal map: %v", err)
+	}
+	if m["model"] != model {
+		t.Errorf("expected model=%q, got %v", model, m["model"])
+	}
+	for _, k := range []string{"prompt", "response_format", "temperature"} {
+		if _, ok := m[k]; ok {
+			t.Errorf("key %q should be absent when nil", k)
+		}
+	}
+}
+
+// TestContract_ResponsesParams_NewFields verifies the new pass-2 fields on
+// ResponsesParams are present with the correct JSON keys.
+func TestContract_ResponsesParams_NewFields(t *testing.T) {
+	prevID := "resp_prev"
+	instr := "Be concise."
+	store := true
+	expireAt := int64(1893456000)
+	maxTC := 3
+	params := ResponsesParams{
+		Input:              "Hello",
+		PreviousResponseID: &prevID,
+		Instructions:       &instr,
+		Thinking:           map[string]interface{}{"enabled": true},
+		Caching:            map[string]interface{}{"ttl": 300},
+		Store:              &store,
+		Include:            []interface{}{"usage"},
+		ExpireAt:           &expireAt,
+		MaxToolCalls:       &maxTC,
+		ContextManagement:  map[string]interface{}{"strategy": "truncate"},
+	}
+	data, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	checks := map[string]interface{}{
+		"previous_response_id": prevID,
+		"instructions":         instr,
+		"store":                true,
+		"expire_at":            float64(expireAt),
+		"max_tool_calls":       float64(maxTC),
+	}
+	for k, want := range checks {
+		got, ok := m[k]
+		if !ok {
+			t.Errorf("missing key %q in marshalled JSON", k)
+			continue
+		}
+		if got != want {
+			t.Errorf("key %q: expected %v, got %v", k, want, got)
+		}
+	}
+	for _, k := range []string{"thinking", "caching", "include", "context_management"} {
+		if _, ok := m[k]; !ok {
+			t.Errorf("missing key %q in marshalled JSON", k)
+		}
+	}
+}
+
+// TestContract_ChatCompletionParams_Cache verifies the new cache field.
+func TestContract_ChatCompletionParams_Cache(t *testing.T) {
+	cacheOn := true
+	params := ChatCompletionParams{
+		Messages: []ChatMessage{{Role: "user", Content: "hi"}},
+		Cache:    &cacheOn,
+	}
+	data, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if m["cache"] != true {
+		t.Errorf("expected cache=true, got %v", m["cache"])
+	}
+	// nil cache must be omitted
+	params2 := ChatCompletionParams{Messages: params.Messages}
+	data2, _ := json.Marshal(params2)
+	var m2 map[string]interface{}
+	json.Unmarshal(data2, &m2)
+	if _, ok := m2["cache"]; ok {
+		t.Error("cache key should be absent when nil")
+	}
+}
+
+// TestContract_CreateTemplateParams_TeamID verifies the new team_id field.
+func TestContract_CreateTemplateParams_TeamID(t *testing.T) {
+	teamID := "team_abc"
+	params := CreateTemplateParams{Name: "my-template", TeamID: &teamID}
+	data, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if m["team_id"] != teamID {
+		t.Errorf("expected team_id=%q, got %v", teamID, m["team_id"])
+	}
+	// nil team_id must be omitted
+	params2 := CreateTemplateParams{Name: "my-template"}
+	data2, _ := json.Marshal(params2)
+	var m2 map[string]interface{}
+	json.Unmarshal(data2, &m2)
+	if _, ok := m2["team_id"]; ok {
+		t.Error("team_id key should be absent when nil")
+	}
+}
+
+func TestContract_DocumentResponse(t *testing.T) {
+	data := loadFixture(t, "document_response.json")
+	var doc DocumentResponse
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("unmarshal document: %v", err)
+	}
+	if doc.DocumentID != "doc_abc123" {
+		t.Errorf("expected document_id 'doc_abc123', got %q", doc.DocumentID)
+	}
+	if doc.Status != "completed" {
+		t.Errorf("expected status 'completed', got %q", doc.Status)
+	}
+	if doc.Format != "pdf" {
+		t.Errorf("expected format 'pdf', got %q", doc.Format)
+	}
+	if doc.Title == nil || *doc.Title != "Q2 2026 Sales Report" {
+		t.Errorf("expected title 'Q2 2026 Sales Report', got %v", doc.Title)
+	}
+	if doc.SizeBytes == nil || *doc.SizeBytes != 102400 {
+		t.Errorf("expected size_bytes=102400, got %v", doc.SizeBytes)
+	}
+	if doc.TotalTokens == nil || *doc.TotalTokens != 950 {
+		t.Errorf("expected total_tokens=950, got %v", doc.TotalTokens)
+	}
+}

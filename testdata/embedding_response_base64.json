@@ -1,0 +1,12 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "embedding",
+      "index": 0,
+      "embedding": "AAAAMAAAQAAAA8A="
+    }
+  ],
+  "model": "openai/text-embedding-3-small",
+  "usage": {"prompt_tokens": 5, "total_tokens": 5}
+}

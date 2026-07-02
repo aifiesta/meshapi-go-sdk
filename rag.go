@@ -79,7 +79,11 @@ func (r *RagResource) UploadFile(ctx context.Context, params UploadFileParams) (
 	}
 	req.Header.Set("Content-Type", params.MimeType)
 
-	resp, err := http.DefaultClient.Do(req)
+	// Use the SDK's configured HTTP client (respects Config.HTTPClient and
+	// timeout) rather than http.DefaultClient. We deliberately skip
+	// r.http.do() here because the signed URL must not carry the Authorization
+	// header used for MeshAPI requests.
+	resp, err := r.http.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("rag: PUT signed URL: %w", err)
 	}

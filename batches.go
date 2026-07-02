@@ -35,7 +35,7 @@ func (r *BatchesResource) List(ctx context.Context, after *string, limit *int) (
 
 func (r *BatchesResource) Get(ctx context.Context, batchID string) (*BatchObject, error) {
 	var out BatchObject
-	if err := r.http.get(ctx, "/v1/batches/"+batchID, nil, &out); err != nil {
+	if err := r.http.get(ctx, "/v1/batches/"+url.PathEscape(batchID), nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -43,7 +43,7 @@ func (r *BatchesResource) Get(ctx context.Context, batchID string) (*BatchObject
 
 func (r *BatchesResource) Cancel(ctx context.Context, batchID string) (*BatchObject, error) {
 	var out BatchObject
-	if err := r.http.post(ctx, "/v1/batches/"+batchID+"/cancel", map[string]interface{}{}, &out); err != nil {
+	if err := r.http.post(ctx, "/v1/batches/"+url.PathEscape(batchID)+"/cancel", map[string]interface{}{}, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
