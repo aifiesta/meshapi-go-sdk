@@ -26,7 +26,7 @@ func TestVideo_List(t *testing.T) {
 func TestVideo_GenerateAndRetrieve(t *testing.T) {
 	model := os.Getenv("MESHAPI_VIDEO_GEN_MODEL")
 	if model == "" {
-		model = "byteplus/dreamina-seedance-2-0"
+		t.Skip("set MESHAPI_VIDEO_GEN_MODEL to run video generation (costly; skipped in CI by default)")
 	}
 	client := newClient(t)
 	text := "A serene mountain lake at sunrise"

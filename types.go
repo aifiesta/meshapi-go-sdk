@@ -687,18 +687,22 @@ type ListVoicesParams struct {
 }
 
 type Voice struct {
-	VoiceID     string            `json:"voice_id"`
-	Name        string            `json:"name"`
-	Category    string            `json:"category"`
-	Description string            `json:"description"`
-	PreviewURL  string            `json:"preview_url"`
-	Labels      map[string]string `json:"labels"`
+	VoiceID     string `json:"voice_id"`
+	Name        string `json:"name"`
+	Category    string `json:"category"`
+	Description string `json:"description"`
+	PreviewURL  string `json:"preview_url"`
+	// Labels values are provider-defined and not always strings — decode as
+	// arbitrary JSON so a numeric/bool/null label doesn't fail the whole request.
+	Labels map[string]interface{} `json:"labels,omitempty"`
 }
 
 type VoicesResponse struct {
-	Voices        []Voice `json:"voices"`
-	HasMore       bool    `json:"has_more"`
-	TotalCount    int     `json:"total_count"`
+	Voices []Voice `json:"voices"`
+	// Pointers so an omitted has_more / total_count is distinguishable from a
+	// real zero value (e.g. paginate while HasMore != nil && *HasMore).
+	HasMore       *bool   `json:"has_more,omitempty"`
+	TotalCount    *int    `json:"total_count,omitempty"`
 	NextPageToken *string `json:"next_page_token"`
 }
 
