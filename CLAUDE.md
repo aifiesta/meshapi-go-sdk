@@ -133,6 +133,7 @@ go test -run TestLive_RAG -v -timeout 300s
 | `realtime_test.go` | WebSocket connect/close, session lifecycle |
 | `audio_test.go` | TTS synthesize, voice listing |
 | `video_test.go` | Video list, generate → retrieve |
+| `compare_test.go` | Non-streaming compare, streaming compare |
 
 ---
 
@@ -146,6 +147,34 @@ Every SDK change — however small — must include all of the following before 
 4. **meshapi-docs** — open a follow-up PR (or note in the PR description) to update the [meshapi-docs](https://github.com/aifiesta/meshapi-docs) repository so the developer documentation stays in sync.
 
 ---
+
+---
+
+## Release
+
+Go modules are released by pushing a `v*` git tag on the `github.com/aifiesta/meshapi-go-sdk` repo. There is no publish workflow — the Go module proxy picks up the tag automatically.
+
+### Release checklist
+
+1. **Commit all changes** (no version file to bump — Go uses git tags):
+   ```bash
+   git add .
+   git commit -m "chore: release v0.1.7"
+   ```
+
+2. **Tag and push**:
+   ```bash
+   git tag v0.1.7
+   git push origin main
+   git push origin v0.1.7
+   ```
+
+3. **Verify** the new version is available on the module proxy (may take ~1 min):
+   ```bash
+   GOFLAGS=-mod=mod go get github.com/aifiesta/meshapi-go-sdk@v0.1.7
+   ```
+
+> Go modules must use a domain-qualified module path (e.g. `github.com/aifiesta/meshapi-go-sdk`). Short aliases like `meshapi-go-sdk` are not valid Go module paths.
 
 ### RAG live test notes
 

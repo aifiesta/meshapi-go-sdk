@@ -55,7 +55,7 @@ func (r *AudioResource) Translate(ctx context.Context, fileData []byte, filename
 }
 
 // ListVoices sends GET /v1/audio/voices.
-func (r *AudioResource) ListVoices(ctx context.Context, params *ListVoicesParams) (map[string]any, error) {
+func (r *AudioResource) ListVoices(ctx context.Context, params *ListVoicesParams) (*VoicesResponse, error) {
 	qp := url.Values{}
 	if params != nil {
 		if params.NextPageToken != nil {
@@ -86,20 +86,20 @@ func (r *AudioResource) ListVoices(ctx context.Context, params *ListVoicesParams
 			qp.Add("voice_ids", id)
 		}
 	}
-	var out map[string]any
+	var out VoicesResponse
 	if err := r.http.get(ctx, "/v1/audio/voices", qp, &out); err != nil {
 		return nil, err
 	}
-	return out, nil
+	return &out, nil
 }
 
 // GetVoice sends GET /v1/audio/voices/{voice_id}.
-func (r *AudioResource) GetVoice(ctx context.Context, voiceID string) (map[string]any, error) {
-	var out map[string]any
+func (r *AudioResource) GetVoice(ctx context.Context, voiceID string) (*Voice, error) {
+	var out Voice
 	if err := r.http.get(ctx, fmt.Sprintf("/v1/audio/voices/%s", voiceID), nil, &out); err != nil {
 		return nil, err
 	}
-	return out, nil
+	return &out, nil
 }
 
 func transcriptionParamsToFields(p TranscriptionParams) (map[string]string, map[string][]string) {

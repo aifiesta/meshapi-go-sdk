@@ -281,7 +281,7 @@ type EmbeddingsParams struct {
 type EmbeddingItem struct {
 	Object    string      `json:"object"`
 	Index     int         `json:"index"`
-	Embedding interface{} `json:"embedding"`
+	Embedding []float64 `json:"embedding"`
 }
 
 type EmbeddingsUsage struct {
@@ -426,7 +426,7 @@ type BatchObject struct {
 	Endpoint     *string `json:"endpoint,omitempty"`
 	InputFileID  *string `json:"input_file_id,omitempty"`
 	OutputFileID *string `json:"output_file_id,omitempty"`
-	Status       *string `json:"status,omitempty"`
+	Status       string  `json:"status"`
 	Model        *string `json:"model,omitempty"`
 	Provider     *string `json:"provider,omitempty"`
 	CreatedAt    *int64  `json:"created_at,omitempty"`
@@ -684,6 +684,22 @@ type ListVoicesParams struct {
 	Category          *string  `json:"category,omitempty"`
 	IncludeTotalCount *bool    `json:"include_total_count,omitempty"`
 	VoiceIDs          []string `json:"voice_ids,omitempty"`
+}
+
+type Voice struct {
+	VoiceID     string            `json:"voice_id"`
+	Name        string            `json:"name"`
+	Category    string            `json:"category"`
+	Description string            `json:"description"`
+	PreviewURL  string            `json:"preview_url"`
+	Labels      map[string]string `json:"labels"`
+}
+
+type VoicesResponse struct {
+	Voices          []Voice `json:"voices"`
+	HasMore         bool    `json:"has_more"`
+	TotalCount      int     `json:"total_count"`
+	NextPageToken   *string `json:"next_page_token"`
 }
 
 // ---------------------------------------------------------------------------
