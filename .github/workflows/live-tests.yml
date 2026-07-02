@@ -6,17 +6,23 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
-  pull_request:
-    branches: [main]
+  pull_request:            # run on PRs to any base (feature-branch stacks included)
   workflow_dispatch:
 
 env:
+  # Secrets (set in repo → Settings → Secrets and variables → Actions → Secrets)
   MESHAPI_BASE_URL: ${{ secrets.MESHAPI_BASE_URL }}
   MESHAPI_TOKEN: ${{ secrets.MESHAPI_TOKEN }}
+  # Core models — safe non-secret defaults.
   MESHAPI_MODEL: "openai/gpt-4o-mini"
   MESHAPI_EMBEDDINGS_MODEL: "openai/text-embedding-3-small"
   MESHAPI_SECOND_MODEL: "anthropic/claude-haiku-4.5"
+  MESHAPI_REALTIME_MODEL: "openai/gpt-realtime-mini"
   MESHAPI_IMAGE_URL: "https://upload.wikimedia.org/wikipedia/commons/3/3f/Fronalpstock_big.jpg"
+  # Feature models — inlined (non-secret). Video generation is intentionally
+  # left unset (skips: too costly to run in CI). Strict mode is off.
+  MESHAPI_IMAGE_GEN_MODEL: "openai/gpt-image-1"
+  MESHAPI_IMAGE_EDIT_MODEL: "openai/gpt-image-1"
 
 jobs:
   live-test:
