@@ -6,17 +6,27 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
-  pull_request:
-    branches: [main]
+  pull_request:            # run on PRs to any base (feature-branch stacks included)
   workflow_dispatch:
 
 env:
+  # Secrets (set in repo → Settings → Secrets and variables → Actions → Secrets)
   MESHAPI_BASE_URL: ${{ secrets.MESHAPI_BASE_URL }}
   MESHAPI_TOKEN: ${{ secrets.MESHAPI_TOKEN }}
+  # Core models — safe non-secret defaults.
   MESHAPI_MODEL: "openai/gpt-4o-mini"
   MESHAPI_EMBEDDINGS_MODEL: "openai/text-embedding-3-small"
   MESHAPI_SECOND_MODEL: "anthropic/claude-haiku-4.5"
+  MESHAPI_REALTIME_MODEL: "openai/gpt-realtime-mini"
   MESHAPI_IMAGE_URL: "https://upload.wikimedia.org/wikipedia/commons/3/3f/Fronalpstock_big.jpg"
+  # Optional-feature config — set as repo Variables (Settings → … → Variables),
+  # NOT secrets. Unset ⇒ the corresponding feature test skips. Set them all and
+  # MESHAPI_STRICT_LIVETESTS=1 to force a complete run (skips become failures).
+  MESHAPI_IMAGE_GEN_MODEL: ${{ vars.MESHAPI_IMAGE_GEN_MODEL }}
+  MESHAPI_VIDEO_GEN_MODEL: ${{ vars.MESHAPI_VIDEO_GEN_MODEL }}
+  MESHAPI_IMAGE_EDIT_MODEL: ${{ vars.MESHAPI_IMAGE_EDIT_MODEL }}
+  MESHAPI_IMAGE_EDIT_INPUT: ${{ vars.MESHAPI_IMAGE_EDIT_INPUT }}
+  MESHAPI_STRICT_LIVETESTS: ${{ vars.MESHAPI_STRICT_LIVETESTS }}
 
 jobs:
   live-test:
