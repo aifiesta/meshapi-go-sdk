@@ -40,7 +40,9 @@ jobs:
 
       - name: Run live tests
         working-directory: livetests
-        run: go test -v -timeout 120s ./...
+        # 300s (matches documented local usage): the full live suite now
+        # includes the added endpoint tests and exceeds the old 120s cap.
+        run: go test -v -timeout 300s ./...
 
       - name: Write job summary
         if: always()
