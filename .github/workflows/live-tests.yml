@@ -19,14 +19,10 @@ env:
   MESHAPI_SECOND_MODEL: "anthropic/claude-haiku-4.5"
   MESHAPI_REALTIME_MODEL: "openai/gpt-realtime-mini"
   MESHAPI_IMAGE_URL: "https://upload.wikimedia.org/wikipedia/commons/3/3f/Fronalpstock_big.jpg"
-  # Optional-feature config — set as repo Variables (Settings → … → Variables),
-  # NOT secrets. Unset ⇒ the corresponding feature test skips. Set them all and
-  # MESHAPI_STRICT_LIVETESTS=1 to force a complete run (skips become failures).
-  MESHAPI_IMAGE_GEN_MODEL: ${{ vars.MESHAPI_IMAGE_GEN_MODEL }}
-  MESHAPI_VIDEO_GEN_MODEL: ${{ vars.MESHAPI_VIDEO_GEN_MODEL }}
-  MESHAPI_IMAGE_EDIT_MODEL: ${{ vars.MESHAPI_IMAGE_EDIT_MODEL }}
-  MESHAPI_IMAGE_EDIT_INPUT: ${{ vars.MESHAPI_IMAGE_EDIT_INPUT }}
-  MESHAPI_STRICT_LIVETESTS: ${{ vars.MESHAPI_STRICT_LIVETESTS }}
+  # Feature models — inlined (non-secret). Video generation is intentionally
+  # left unset (skips: too costly to run in CI). Strict mode is off.
+  MESHAPI_IMAGE_GEN_MODEL: "openai/gpt-image-1"
+  MESHAPI_IMAGE_EDIT_MODEL: "openai/gpt-image-1"
 
 jobs:
   live-test:
