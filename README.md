@@ -10,7 +10,7 @@ Go client for the MeshAPI AI model gateway.
 ## Installation
 
 ```bash
-go get github.com/aifiesta/meshapi-go-sdk@v0.1.9
+go get github.com/aifiesta/meshapi-go-sdk@latest
 ```
 
 ## Quick Start
@@ -93,10 +93,9 @@ os.WriteFile("output.wav", audioBytes, 0644)
 
 // Speech-to-text — send raw audio bytes with a filename hint
 fileData, _ := os.ReadFile("audio.wav")
-lang := "en"
 result, err := client.Audio.Transcribe(ctx, fileData, "audio.wav", meshapi.TranscriptionParams{
-    Model:        "sarvam/saaras:v3",
-    LanguageCode: &lang,
+    Model: "sarvam/saaras:v3",
+    // Optional: LanguageCode is model-specific (e.g. Sarvam expects "en-IN", not "en").
 })
 fmt.Println(result.Text)
 
@@ -409,5 +408,5 @@ MESHAPI_TOKEN=rsk_... go test ./... -v -timeout 300s
 ## Versioning
 
 ```go
-fmt.Println(meshapi.Version) // "0.1.9"
+fmt.Println(meshapi.Version) // "0.1.10"
 ```

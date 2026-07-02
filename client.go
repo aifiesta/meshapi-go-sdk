@@ -17,7 +17,7 @@ package meshapi
 import "net/http"
 
 // Version is the current SDK version.
-const Version = "0.1.9"
+const Version = "0.1.10"
 
 // Config holds the client configuration.
 type Config struct {

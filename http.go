@@ -18,7 +18,7 @@ import (
 
 const (
 	sdkVersionHeader = "X-MeshAPI-SDK"
-	sdkVersionValue  = "go/0.1.9"
+	sdkVersionValue  = "go/0.1.10"
 
 	defaultTimeoutMs   = 60_000
 	defaultMaxRetries  = 3
