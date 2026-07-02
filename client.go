@@ -55,18 +55,21 @@ func (c Config) maxRetries() int {
 //	inferenceClient := meshapi.New(meshapi.Config{Token: "rsk_..."})
 //	mgmtClient      := meshapi.New(meshapi.Config{Token: "<jwt>"})
 type Client struct {
-	Chat      *ChatResource
-	Responses *ResponsesResource
-	Embeddings *EmbeddingsResource
-	Compare   *CompareResource
-	Batches   *BatchesResource
-	Models    *ModelsResource
-	Templates *TemplatesResource
-	Images    *ImagesResource
-	RAG       *RagResource
-	Realtime  *RealtimeResource
-	Audio     *AudioResource
-	Videos    *VideosResource
+	Chat        *ChatResource
+	Responses   *ResponsesResource
+	Embeddings  *EmbeddingsResource
+	Compare     *CompareResource
+	Batches     *BatchesResource
+	Models      *ModelsResource
+	Templates   *TemplatesResource
+	Images      *ImagesResource
+	RAG         *RagResource
+	Realtime    *RealtimeResource
+	Audio       *AudioResource
+	Videos      *VideosResource
+	Moderations *ModerationsResource
+	Web         *WebResource
+	Router      *RouterResource
 }
 
 // New creates a new MeshAPI client with the given configuration.
@@ -76,16 +79,19 @@ func New(cfg Config) *Client {
 		Chat: &ChatResource{
 			Completions: &CompletionsResource{http: http},
 		},
-		Responses:  &ResponsesResource{http: http},
-		Embeddings: &EmbeddingsResource{http: http},
-		Compare:    &CompareResource{http: http},
-		Batches:    &BatchesResource{http: http},
-		Models:     &ModelsResource{http: http},
-		Templates:  &TemplatesResource{http: http},
-		Images:     &ImagesResource{http: http},
-		RAG:        &RagResource{http: http},
-		Realtime:   &RealtimeResource{http: http},
-		Audio:      &AudioResource{http: http},
-		Videos:     &VideosResource{http: http},
+		Responses:   &ResponsesResource{http: http},
+		Embeddings:  &EmbeddingsResource{http: http},
+		Compare:     &CompareResource{http: http},
+		Batches:     &BatchesResource{http: http},
+		Models:      &ModelsResource{http: http},
+		Templates:   &TemplatesResource{http: http},
+		Images:      &ImagesResource{http: http},
+		RAG:         &RagResource{http: http},
+		Realtime:    &RealtimeResource{http: http},
+		Audio:       &AudioResource{http: http},
+		Videos:      &VideosResource{http: http},
+		Moderations: &ModerationsResource{http: http},
+		Web:         &WebResource{http: http},
+		Router:      &RouterResource{http: http},
 	}
 }
