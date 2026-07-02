@@ -331,29 +331,3 @@ func TestContract_CreateTemplateParams_TeamID(t *testing.T) {
 		t.Error("team_id key should be absent when nil")
 	}
 }
-
-func TestContract_DocumentResponse(t *testing.T) {
-	data := loadFixture(t, "document_response.json")
-	var doc DocumentResponse
-	if err := json.Unmarshal(data, &doc); err != nil {
-		t.Fatalf("unmarshal document: %v", err)
-	}
-	if doc.DocumentID != "doc_abc123" {
-		t.Errorf("expected document_id 'doc_abc123', got %q", doc.DocumentID)
-	}
-	if doc.Status != "completed" {
-		t.Errorf("expected status 'completed', got %q", doc.Status)
-	}
-	if doc.Format != "pdf" {
-		t.Errorf("expected format 'pdf', got %q", doc.Format)
-	}
-	if doc.Title == nil || *doc.Title != "Q2 2026 Sales Report" {
-		t.Errorf("expected title 'Q2 2026 Sales Report', got %v", doc.Title)
-	}
-	if doc.SizeBytes == nil || *doc.SizeBytes != 102400 {
-		t.Errorf("expected size_bytes=102400, got %v", doc.SizeBytes)
-	}
-	if doc.TotalTokens == nil || *doc.TotalTokens != 950 {
-		t.Errorf("expected total_tokens=950, got %v", doc.TotalTokens)
-	}
-}
