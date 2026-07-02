@@ -10,7 +10,7 @@ Go client for the MeshAPI AI model gateway.
 ## Installation
 
 ```bash
-go get github.com/aifiesta/meshapi-go-sdk@v0.1.6
+go get github.com/aifiesta/meshapi-go-sdk@v0.1.9
 ```
 
 ## Quick Start
@@ -61,7 +61,8 @@ resp, _ := client.Responses.Create(ctx, meshapi.ResponsesParams{
     Input: "Solve for X: 2x + 5 = 15",
 })
 
-// List background response jobs, or fetch one by id
+// List background response jobs, or fetch a persisted/background response by id.
+// Synchronous create responses are not guaranteed to be retrievable via Get.
 limit := 20
 jobs, _ := client.Responses.List(ctx, meshapi.ResponsesListParams{Limit: &limit})
 job, _ := client.Responses.Get(ctx, "resp_abc123")
@@ -81,38 +82,41 @@ emb, _ := client.Embeddings.Create(ctx, meshapi.EmbeddingsParams{
 
 ```go
 // Text-to-speech — returns []byte of raw audio
+ttsModel := "sarvam/bulbul:v2"
+voiceName := "meera"
 audioBytes, err := client.Audio.Synthesize(ctx, meshapi.SpeechParams{
     Input: "Hello from MeshAPI.",
-    Model: "sarvam/bulbul:v2",
-    Voice: strPtr("meera"),
+    Model: &ttsModel,
+    Voice: &voiceName,
 })
 os.WriteFile("output.wav", audioBytes, 0644)
 
-// Speech-to-text — submit transcription job
+// Speech-to-text — send raw audio bytes with a filename hint
 fileData, _ := os.ReadFile("audio.wav")
 lang := "en"
-result, err := client.Audio.Transcribe(ctx, meshapi.TranscriptionParams{
-    Model:    "sarvam/saaras:v3",
-    File:     fileData,
-    FileName: "audio.wav",
-    Language: &lang,
+result, err := client.Audio.Transcribe(ctx, fileData, "audio.wav", meshapi.TranscriptionParams{
+    Model:        "sarvam/saaras:v3",
+    LanguageCode: &lang,
 })
 fmt.Println(result.Text)
 
 // Translate audio to English via /v1/audio/transcriptions/translate
-translated, err := client.Audio.Translate(ctx, fileData, "audio.wav", &meshapi.TranscriptionTranslateParams{})
+translateModel := "sarvam/saaras:v3"
+translated, err := client.Audio.Translate(ctx, fileData, "audio.wav", &meshapi.TranscriptionTranslateParams{
+    Model: &translateModel,
+})
 fmt.Println(translated.Text)
 
 // Standalone audio translation via POST /v1/audio/translations
 // (distinct endpoint from Translate above)
 translated2, err := client.Audio.Translations(ctx, fileData, "audio.wav", meshapi.AudioTranslationParams{
-    Model: "whisper-1",
+    Model: "openai/whisper-large-v3",
 })
 fmt.Println(translated2.Text)
 
 // List available voices
 pageSize := 10
-voices, err := client.Audio.ListVoices(ctx, meshapi.ListVoicesParams{PageSize: &pageSize})
+voices, err := client.Audio.ListVoices(ctx, &meshapi.ListVoicesParams{PageSize: &pageSize})
 
 // Get a specific voice
 voice, err := client.Audio.GetVoice(ctx, "voice-id")
@@ -122,10 +126,11 @@ voice, err := client.Audio.GetVoice(ctx, "voice-id")
 
 ```go
 // Submit a video generation task
+prompt := "A serene mountain lake at sunrise"
 task, err := client.Videos.Generate(ctx, meshapi.VideoGenerationParams{
     Model: "byteplus/dreamina-seedance-2-0",
     Content: []meshapi.VideoContentItem{
-        {Type: "text", Text: strPtr("A serene mountain lake at sunrise")},
+        {Type: "text", Text: &prompt},
     },
 })
 fmt.Println("Task ID:", task.ID)
@@ -257,7 +262,8 @@ for _, r := range results.Results {
 }
 
 // List files
-list, _ := client.RAG.List(ctx, meshapi.ListRagFilesParams{Limit: intPtr(50)})
+limit := 50
+list, _ := client.RAG.List(ctx, meshapi.ListRagFilesParams{Limit: &limit})
 ```
 
 ## Realtime (Speech-to-Speech WebSocket)
@@ -403,5 +409,5 @@ MESHAPI_TOKEN=rsk_... go test ./... -v -timeout 300s
 ## Versioning
 
 ```go
-fmt.Println(meshapi.Version) // "0.1.0"
+fmt.Println(meshapi.Version) // "0.1.9"
 ```
