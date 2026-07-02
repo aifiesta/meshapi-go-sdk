@@ -17,7 +17,7 @@ package meshapi
 import "net/http"
 
 // Version is the current SDK version.
-const Version = "0.1.8"
+const Version = "0.1.9"
 
 // Config holds the client configuration.
 type Config struct {
@@ -70,7 +70,6 @@ type Client struct {
 	Moderations *ModerationsResource
 	Web         *WebResource
 	Router      *RouterResource
-	Documents   *DocumentsResource
 }
 
 // New creates a new MeshAPI client with the given configuration.
@@ -94,6 +93,5 @@ func New(cfg Config) *Client {
 		Moderations: &ModerationsResource{http: http},
 		Web:         &WebResource{http: http},
 		Router:      &RouterResource{http: http},
-		Documents:   &DocumentsResource{http: http},
 	}
 }
