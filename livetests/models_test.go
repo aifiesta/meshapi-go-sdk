@@ -82,3 +82,47 @@ func TestLive_Models_ListWithFilter(t *testing.T) {
 	}
 	t.Logf("[PASS] filter: free=%d paid=%d", len(free), len(paid))
 }
+
+func TestLive_Models_SearchPaginated(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+
+	limit := 5
+	page, err := client.Models.Search(ctx, meshapi.ModelSearchParams{Limit: &limit})
+	if err != nil {
+		t.Fatalf("models.search: %v", err)
+	}
+	if page.Limit != 5 {
+		t.Errorf("page should echo requested limit, got %d", page.Limit)
+	}
+	if len(page.Items) > 5 {
+		t.Errorf("page exceeded limit: %d items", len(page.Items))
+	}
+	for _, m := range page.Items {
+		if m.ID == "" || m.Name == "" {
+			t.Errorf("model missing id/name: %+v", m)
+		}
+	}
+	t.Logf("[PASS] models.search → total=%d brands=%d", page.Total, len(page.Brands))
+}
+
+func TestLive_Models_GetByID(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+
+	listed, err := client.Models.List(ctx, meshapi.ListModelsParams{})
+	if err != nil {
+		t.Fatalf("models.list: %v", err)
+	}
+	if len(listed) == 0 {
+		t.Skip("no models available to fetch by id")
+	}
+	target := listed[0].ID
+	m, err := client.Models.Get(ctx, target)
+	if err != nil {
+		t.Fatalf("models.get(%q): %v", target, err)
+	}
+	if m.ID != target {
+		t.Errorf("get(%q) returned %q", target, m.ID)
+	}
+}

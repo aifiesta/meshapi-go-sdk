@@ -60,6 +60,11 @@ resp, _ := client.Responses.Create(ctx, meshapi.ResponsesParams{
     Model: &respModel,
     Input: "Solve for X: 2x + 5 = 15",
 })
+
+// List background response jobs, or fetch one by id
+limit := 20
+jobs, _ := client.Responses.List(ctx, meshapi.ResponsesListParams{Limit: &limit})
+job, _ := client.Responses.Get(ctx, "resp_abc123")
 ```
 
 ## Embeddings
@@ -153,6 +158,16 @@ img, _ := client.Images.Generate(ctx, meshapi.ImageGenerationParams{
 // Streaming
 chunkCh, errCh := client.Images.Stream(ctx, params)
 for chunk := range chunkCh { ... }
+
+// Editing — Image is a base64/data-URL string (or meshapi.ImageRef);
+// remote http(s) URLs are rejected by this endpoint.
+editPrompt, editOp := "Replace the background with a beach at sunset", "edit"
+edited, _ := client.Images.Edit(ctx, meshapi.ImageEditParams{
+    Model:     "openai/gpt-image-1",
+    Image:     "data:image/png;base64,<...>",
+    Prompt:    &editPrompt,
+    Operation: &editOp, // or inpaint / outpaint / mix / reframe / upscale / remove_background
+})
 ```
 
 ## Compare (multi-model)
@@ -290,6 +305,53 @@ Auth is sent via `Sec-WebSocket-Protocol: openai-realtime, Bearer <token>`. The 
 ```go
 models, _ := client.Models.List(ctx, meshapi.ListModelsParams{})
 free, _   := client.Models.Free(ctx)
+
+// Paginated catalog search (DB-only, no model cost)
+q, limit := "gpt", 10
+page, _ := client.Models.Search(ctx, meshapi.ModelSearchParams{Q: &q, Limit: &limit})
+fmt.Println(page.Total, page.Brands)
+
+// Fetch one model's detail
+gpt4o, _ := client.Models.Get(ctx, "openai/gpt-4o")
+```
+
+## Moderations
+
+```go
+res, _ := client.Moderations.Create(ctx, meshapi.ModerationParams{Input: "text to classify"})
+if len(res.Results) > 0 && res.Results[0].Flagged {
+    fmt.Println("flagged:", res.Results[0].Categories)
+}
+```
+
+## Web search
+
+Gated server-side by `WEB_SEARCH_ENABLED`. Native-first with Tavily fallback;
+inspect `res.Provider` to see which engine served the request.
+
+```go
+maxResults, includeAnswer := 5, true
+res, _ := client.Web.Search(ctx, meshapi.WebSearchParams{
+    Query:         "latest news on Mars rovers",
+    MaxResults:    &maxResults,
+    IncludeAnswer: &includeAnswer,
+})
+fmt.Println(res.Provider)
+for _, hit := range res.Results {
+    fmt.Println(hit.Title, hit.URL)
+}
+```
+
+## Router select
+
+Gated server-side by `AUTO_ROUTER_ENABLED`. Returns the model the Auto Router
+*would* pick — without running inference.
+
+```go
+sel, _ := client.Router.Select(ctx, meshapi.RouterSelectParams{
+    Messages: []meshapi.ChatMessage{{Role: "user", Content: "Prove that 2+2=4."}},
+})
+fmt.Println(sel.Model, sel.AutoRouter.FallbackUsed)
 ```
 
 ## Templates

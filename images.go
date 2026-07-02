@@ -15,6 +15,16 @@ func (r *ImagesResource) Generate(ctx context.Context, params ImageGenerationPar
 	return &out, nil
 }
 
+// Edit edits a source image (JSON/base64 mode). Image must be a base64 or
+// data:-URL string (or ImageRef) — remote http(s) URLs are rejected.
+func (r *ImagesResource) Edit(ctx context.Context, params ImageEditParams) (*ImageGenerationResponse, error) {
+	var out ImageGenerationResponse
+	if err := r.http.post(ctx, "/v1/images/edits", params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // Stream opens a streaming image generation request. It returns two channels:
 //   - chunkCh: receives parsed ImageGenerationChunks until [DONE] or error
 //   - errCh:   receives at most one error, then is closed
