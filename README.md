@@ -276,13 +276,21 @@ if err != nil {
 }
 defer session.Close()
 
-// Send a JSON event
+// Send a JSON event (GA session shape)
 session.Send(ctx, map[string]any{
-    "type":    "session.update",
-    "session": map[string]any{"instructions": "You are a helpful assistant."},
+    "type": "session.update",
+    "session": map[string]any{
+        "type":              "realtime",
+        "output_modalities": []string{"audio"},
+        "instructions":      "You are a helpful assistant.",
+        "audio": map[string]any{
+            "input":  map[string]any{"format": map[string]any{"type": "audio/pcm", "rate": 24000}},
+            "output": map[string]any{"format": map[string]any{"type": "audio/pcm", "rate": 24000}, "voice": "alloy"},
+        },
+    },
 })
 
-// Send raw audio bytes
+// Append input audio (PCM16 24kHz) — sent as base64 input_audio_buffer.append
 session.SendAudio(ctx, pcmBytes)
 
 // Receive frames one at a time
@@ -408,5 +416,5 @@ MESHAPI_TOKEN=rsk_... go test ./... -v -timeout 300s
 ## Versioning
 
 ```go
-fmt.Println(meshapi.Version) // "0.1.11"
+fmt.Println(meshapi.Version) // "0.1.12"
 ```

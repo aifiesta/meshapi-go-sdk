@@ -2,6 +2,7 @@ package meshapi
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,15 @@ import (
 	"time"
 )
 
+// realtimeAudioDeltaTypes are server events that carry base64 output audio in
+// their "delta" field. The realtime API sends audio in-band as base64 JSON
+// events rather than binary WebSocket frames, so we decode them into
+// RealtimeMessage.Audio.
+var realtimeAudioDeltaTypes = map[string]bool{
+	"response.output_audio.delta": true, // GA protocol
+	"response.audio.delta":        true, // beta protocol
+}
+
 // RealtimeConnectParams holds parameters for opening a realtime session.
 type RealtimeConnectParams struct {
 	// Model is the realtime-capable model ID, e.g. "openai/gpt-4o-realtime-preview".
@@ -20,13 +30,16 @@ type RealtimeConnectParams struct {
 
 // RealtimeMessage is a single frame received from the server.
 //
-// Exactly one of Text or Audio is non-empty per message.
+// Event holds the parsed JSON map for a server event. For output-audio delta
+// events (response.output_audio.delta / response.audio.delta), Audio also
+// carries the decoded raw audio bytes, so callers can check len(msg.Audio) > 0
+// while still inspecting msg.Event.
 type RealtimeMessage struct {
 	// Text is the raw JSON string for text frames.
 	Text string
-	// Audio is the raw bytes for binary audio frames.
+	// Audio is the decoded raw audio bytes for output-audio delta events.
 	Audio []byte
-	// Event is the parsed JSON map for text frames; nil for audio frames.
+	// Event is the parsed JSON map for the server event.
 	Event map[string]any
 }
 
@@ -70,14 +83,15 @@ func (s *RealtimeSession) Send(ctx context.Context, event any) error {
 	return s.conn.WriteText(data)
 }
 
-// SendAudio sends raw audio bytes to the server as a binary frame.
+// SendAudio appends raw PCM16 audio to the input buffer.
+//
+// It is sent as a base64 input_audio_buffer.append text event — the realtime
+// API does not accept binary WebSocket frames.
 func (s *RealtimeSession) SendAudio(ctx context.Context, audio []byte) error {
-	if dl, ok := ctx.Deadline(); ok {
-		s.conn.conn.SetWriteDeadline(dl)
-	}
-	s.sendMu.Lock()
-	defer s.sendMu.Unlock()
-	return s.conn.WriteBinary(audio)
+	return s.Send(ctx, map[string]any{
+		"type":  "input_audio_buffer.append",
+		"audio": base64.StdEncoding.EncodeToString(audio),
+	})
 }
 
 // Receive reads the next frame from the server.
@@ -217,6 +231,14 @@ func decodeFrame(f wsFrame) (RealtimeMessage, error) {
 		msg.Event = evt
 		if evt["type"] == "error" {
 			return RealtimeMessage{}, extractRealtimeError(evt)
+		}
+		// Decode in-band output audio (base64 in "delta") into Audio.
+		if t, _ := evt["type"].(string); realtimeAudioDeltaTypes[t] {
+			if delta, ok := evt["delta"].(string); ok {
+				if raw, derr := base64.StdEncoding.DecodeString(delta); derr == nil {
+					msg.Audio = raw
+				}
+			}
 		}
 	}
 	return msg, nil
