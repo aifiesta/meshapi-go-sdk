@@ -135,6 +135,12 @@ type ChatCompletionParams struct {
 	// independent of the SDK-level TimeoutMs option on Config, which controls
 	// the HTTP client timeout.
 	Timeout *float64 `json:"timeout,omitempty"`
+	// FallbackModels is a per-call override of Config.Fallback.Models: the
+	// client-side model-fallback chain tried in order when the primary model
+	// fails with a transient error (non-streaming Create only). It is a
+	// client-side directive and is NEVER serialised to the request body —
+	// distinct from Models, which is a server-side provider-handled list.
+	FallbackModels []string `json:"-"`
 }
 
 // UsageInfo holds token counts for a completion.

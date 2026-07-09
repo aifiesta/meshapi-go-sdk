@@ -391,16 +391,105 @@ if err != nil {
 }
 ```
 
-## Retry / backoff
+## Resilience: retry, fallback, and observability
 
-Retries on 429/502/503/504 with exponential backoff (default 3 retries, 500 ms base, 30 s max, ±20% jitter). Respects `Retry-After`.
+### Transport retry
+
+Every non-streaming request retries on 429/502/503/504 with exponential
+backoff + jitter, honouring `Retry-After` (default 3 retries, 500 ms base,
+30 s max). **Streams never retry** — on connection failure the error channel
+receives a `MeshAPIError` with `Code="stream_interrupted"`. The policy is
+configurable:
 
 ```go
 maxRetries := 5
-client := meshapi.New(meshapi.Config{MaxRetries: &maxRetries})
+baseMs, maxMs := 250, 10_000
+respectRetryAfter, retryOnNetworkError := true, true
+
+client := meshapi.New(meshapi.Config{
+    BaseURL: baseURL,
+    Token:   token,
+    Retry: &meshapi.RetryPolicy{
+        MaxRetries:          &maxRetries,          // default 3
+        RetryOnStatus:       []int{429, 503},      // default [429, 502, 503, 504]
+        BackoffBaseMs:       &baseMs,              // default 500
+        BackoffMaxMs:        &maxMs,               // default 30_000
+        RespectRetryAfter:   &respectRetryAfter,   // default true
+        RetryOnNetworkError: &retryOnNetworkError, // default false — POSTs are non-idempotent
+    },
+})
 ```
 
-**Streams do not retry.** On connection failure the error channel receives a `MeshAPIError` with `Code="stream_interrupted"`.
+(The top-level `MaxRetries` config option still works and maps onto
+`Retry.MaxRetries`, which wins when both are set.)
+
+### Model fallback chain
+
+`Chat.Completions.Create` (non-streaming) can fall back to other models when
+the primary fails with a transient error (default 502/503/504, after transport
+retries). Configure a chain client-wide or per call:
+
+```go
+client := meshapi.New(meshapi.Config{
+    BaseURL:  baseURL,
+    Token:    token,
+    Fallback: &meshapi.FallbackConfig{
+        Models: []string{"anthropic/claude-sonnet-5", "mistral/mistral-large"},
+    },
+})
+
+// Per-call override (never sent to the server):
+model := "openai/gpt-4o"
+resp, err := client.Chat.Completions.Create(ctx, meshapi.ChatCompletionParams{
+    Model:          &model,
+    Messages:       messages,
+    FallbackModels: []string{"anthropic/claude-sonnet-5"},
+})
+```
+
+Terminal errors (auth, validation, billing) never advance the chain. This is
+distinct from the `Models` request param, which is a server-side
+provider-handled list.
+
+### Seeing what happened: `Debug` and `Logger`
+
+With `Debug: true`, every retry and fallback prints a readable line to stderr:
+
+```
+[meshapi] retrying POST /v1/chat/completions (attempt 1/4 failed: 503, next in 512ms) [req_abc]
+[meshapi] falling back openai/gpt-4o → anthropic/claude-sonnet-5 (1/2: 503 provider_not_available)
+[meshapi] gateway served /v1/chat/completions via bedrock (2 attempts, provider fallback) [req_abc]
+```
+
+For structured logging, pass a `Logger` — it receives every retry, fallback,
+and gateway-routing event:
+
+```go
+client := meshapi.New(meshapi.Config{
+    BaseURL: baseURL,
+    Token:   token,
+    Logger: func(event meshapi.ResilienceEvent) {
+        switch e := event.(type) {
+        case meshapi.RetryEvent:
+            log.Printf("meshapi retry: %+v", e)
+        case meshapi.FallbackEvent:
+            log.Printf("meshapi fallback: %+v", e)
+        case meshapi.GatewayRoutingEvent:
+            if e.Fallback {
+                log.Printf("served by %s after %d attempts", e.ServedProvider, e.Attempts)
+            }
+        }
+    },
+})
+```
+
+`GatewayRoutingEvent`s report the **server-side** resilience the gateway
+itself performed (per-key `routing_policy`: same-target retries +
+cross-provider fallback), parsed from the `X-Mesh-Routing-Attempts` /
+`X-Mesh-Routing-Fallback` / `X-Mesh-Served-Provider` response headers. They
+appear only when your API key has an active routing policy. Streaming
+responses carry no routing headers — check your MeshAPI dashboard logs for
+per-request routing detail instead.
 
 ## Running tests
 
