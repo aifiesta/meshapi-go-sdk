@@ -110,6 +110,64 @@ func TestJSONSchemaForType(t *testing.T) {
 	}
 }
 
+func TestSchema_MapKeys(t *testing.T) {
+	strMap := jsonSchemaForType(reflect.TypeOf(map[string]int{}))
+	ap, ok := strMap["additionalProperties"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("map[string]int should have additionalProperties, got %v", strMap)
+	}
+	if ap["type"] != "integer" {
+		t.Errorf("map[string]int values should be integer, got %v", ap)
+	}
+
+	intMap := jsonSchemaForType(reflect.TypeOf(map[int]string{}))
+	if _, present := intMap["additionalProperties"]; present {
+		t.Errorf("map[int]string should not emit additionalProperties, got %v", intMap)
+	}
+	if intMap["type"] != "object" {
+		t.Errorf("map[int]string type = %v", intMap["type"])
+	}
+
+	// A defined type whose underlying kind is string still counts as string-keyed.
+	type keyT string
+	defMap := jsonSchemaForType(reflect.TypeOf(map[keyT]int{}))
+	if _, present := defMap["additionalProperties"]; !present {
+		t.Errorf("map[keyT]int (underlying string) should have additionalProperties, got %v", defMap)
+	}
+}
+
+// hexColor decodes from a JSON string via encoding.TextUnmarshaler even though its
+// reflect kind is struct.
+type hexColor struct {
+	R, G, B uint8
+}
+
+func (c *hexColor) UnmarshalText([]byte) error { return nil }
+
+// rawThing decodes from arbitrary JSON via json.Unmarshaler.
+type rawThing struct {
+	N int
+}
+
+func (r *rawThing) UnmarshalJSON([]byte) error { return nil }
+
+func TestSchema_CustomDecoders(t *testing.T) {
+	// TextUnmarshaler -> string schema, not a struct object.
+	s := jsonSchemaForType(reflect.TypeOf(hexColor{}))
+	if s["type"] != "string" {
+		t.Fatalf("type implementing TextUnmarshaler should map to string schema, got %v", s)
+	}
+	if _, ok := s["properties"]; ok {
+		t.Errorf("custom decoder should not emit struct properties, got %v", s)
+	}
+
+	// json.Unmarshaler -> unconstrained {}.
+	r := jsonSchemaForType(reflect.TypeOf(rawThing{}))
+	if len(r) != 0 {
+		t.Errorf("type implementing json.Unmarshaler should be unconstrained, got %v", r)
+	}
+}
+
 // ── Parse ─────────────────────────────────────────────────────────────────────
 
 func TestParse_SuccessSendsSchema(t *testing.T) {
@@ -173,6 +231,21 @@ func TestParse_DefaultNoRetry(t *testing.T) {
 	}
 	if len(*calls) != 1 {
 		t.Fatalf("want 1 call, got %d", len(*calls))
+	}
+}
+
+func TestParse_NullResultIsError(t *testing.T) {
+	client, calls := newParseServer(t, chatPayload("null"))
+	got, err := Parse[parseCountry](context.Background(), client.Chat.Completions, parseParams())
+	var soe *StructuredOutputError
+	if !errors.As(err, &soe) {
+		t.Fatalf("literal JSON null should yield *StructuredOutputError, got %T: %v", err, err)
+	}
+	if got != (parseCountry{}) {
+		t.Errorf("want zero value alongside error, got %+v", got)
+	}
+	if len(*calls) != 1 {
+		t.Fatalf("default (no retry) should make 1 call, got %d", len(*calls))
 	}
 }
 

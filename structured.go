@@ -2,6 +2,7 @@ package meshapi
 
 import (
 	"context"
+	"encoding"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -102,7 +103,15 @@ func Parse[T any](
 		content := chatContent(resp)
 
 		var result T
-		decErr := json.Unmarshal([]byte(content), &result)
+		var decErr error
+		if strings.TrimSpace(content) == "null" {
+			// A literal JSON null decodes into a non-pointer T without error,
+			// silently yielding a zero value. Treat it as "no data" and route it
+			// through the same failure/retry path as non-JSON output.
+			decErr = errNullResult
+		} else {
+			decErr = json.Unmarshal([]byte(content), &result)
+		}
 		if decErr == nil {
 			return result, nil
 		}
@@ -136,9 +145,17 @@ func chatContent(resp *ChatCompletionResponse) string {
 	return *msg.Content
 }
 
+// errNullResult marks a reply that was a literal JSON null — syntactically valid
+// but carrying no object to decode into T. It is treated as "not JSON / no data".
+var errNullResult = errors.New("the model returned a JSON null instead of an object")
+
 // isNotJSON reports whether the decode failed because the content wasn't JSON at
-// all (prose / empty), as opposed to valid JSON that didn't fit the type.
+// all (prose / empty / a bare null), as opposed to valid JSON that didn't fit the
+// type.
 func isNotJSON(err error) bool {
+	if errors.Is(err, errNullResult) {
+		return true
+	}
 	var se *json.SyntaxError
 	return errors.As(err, &se)
 }
@@ -155,8 +172,18 @@ func correctionPrompt(err error) string {
 // Reflection: Go type -> JSON schema
 // ---------------------------------------------------------------------------
 
-var timeType = reflect.TypeOf(time.Time{})
+var (
+	timeType            = reflect.TypeOf(time.Time{})
+	textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+	jsonUnmarshalerType = reflect.TypeOf((*json.Unmarshaler)(nil)).Elem()
+)
 
+// jsonSchemaForType derives a JSON schema from a Go type by reflection. It is
+// best-effort: it follows encoding/json's json-tag, embedding, and custom-decoder
+// conventions closely but does not reproduce every rule. In particular, when
+// embedded structs contribute fields with conflicting JSON names, the winner here
+// is not disambiguated the way encoding/json does at (un)marshal time. Pass
+// WithSchema to supply an explicit schema for such types.
 func jsonSchemaForType(t reflect.Type) map[string]interface{} {
 	return schemaFor(t, map[reflect.Type]bool{})
 }
@@ -170,6 +197,16 @@ func schemaFor(t reflect.Type, seen map[reflect.Type]bool) map[string]interface{
 	}
 	if t == timeType {
 		return map[string]interface{}{"type": "string", "format": "date-time"}
+	}
+	// Types with a custom decoder don't follow their reflect kind on the wire.
+	// A TextUnmarshaler decodes from a JSON string; a bare json.Unmarshaler can
+	// accept any JSON, so leave it unconstrained. (time.Time is handled above so
+	// it keeps its date-time format.)
+	if reflect.PtrTo(t).Implements(textUnmarshalerType) {
+		return map[string]interface{}{"type": "string"}
+	}
+	if reflect.PtrTo(t).Implements(jsonUnmarshalerType) {
+		return map[string]interface{}{}
 	}
 
 	switch t.Kind() {
@@ -188,10 +225,16 @@ func schemaFor(t reflect.Type, seen map[reflect.Type]bool) map[string]interface{
 		}
 		return map[string]interface{}{"type": "array", "items": schemaFor(t.Elem(), seen)}
 	case reflect.Map:
-		return map[string]interface{}{
-			"type":                 "object",
-			"additionalProperties": schemaFor(t.Elem(), seen),
+		// Only string-keyed maps decode from a JSON object with arbitrary keys.
+		// For non-string keys, additionalProperties would describe values json
+		// can't place, so emit a plain object instead.
+		if t.Key().Kind() == reflect.String {
+			return map[string]interface{}{
+				"type":                 "object",
+				"additionalProperties": schemaFor(t.Elem(), seen),
+			}
 		}
+		return map[string]interface{}{"type": "object"}
 	case reflect.Struct:
 		if seen[t] {
 			return map[string]interface{}{"type": "object"} // break recursive types
