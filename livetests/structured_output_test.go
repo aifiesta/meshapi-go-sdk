@@ -136,3 +136,39 @@ func TestLive_StructuredOutput_FinishReason(t *testing.T) {
 		})
 	}
 }
+
+// TestLive_StructuredOutput_Parse exercises the meshapi.Parse[T] ergonomic API:
+// the JSON schema is derived from the struct by reflection and the reply is
+// decoded into a typed value.
+func TestLive_StructuredOutput_Parse(t *testing.T) {
+	client := newClient(t)
+	ctx := context.Background()
+
+	type CountryInfo struct {
+		Country string `json:"country"`
+		Capital string `json:"capital"`
+	}
+
+	for _, model := range structuredOutputModels {
+		model := model
+		t.Run(model, func(t *testing.T) {
+			t.Parallel()
+			got, err := meshapi.Parse[CountryInfo](ctx, client.Chat.Completions,
+				meshapi.ChatCompletionParams{
+					Model: strPtr(model),
+					Messages: []meshapi.ChatMessage{
+						{Role: "user", Content: "What is the capital of France?"},
+					},
+					MaxTokens: intPtr(1000),
+				},
+			)
+			if err != nil {
+				t.Fatalf("[%s] Parse: %v", model, err)
+			}
+			if !strings.Contains(strings.ToLower(got.Capital), "paris") {
+				t.Errorf("[%s] expected Paris, got %q", model, got.Capital)
+			}
+			t.Logf("[PASS] %s Parse → %+v", model, got)
+		})
+	}
+}

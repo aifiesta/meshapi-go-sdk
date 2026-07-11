@@ -52,6 +52,59 @@ if err := <-errCh; err != nil {
 }
 ```
 
+## Structured outputs
+
+`meshapi.Parse[T]` constrains the model to a JSON schema and decodes the reply
+into `T`. Define a struct with `json` tags — the schema is derived from it by
+reflection. Because Go methods can't have type parameters, `Parse` is a
+package-level function that takes the completions resource.
+
+```go
+type Country struct {
+    Country            string `json:"country"`
+    Capital            string `json:"capital"`
+    PopulationMillions float64 `json:"population_millions"`
+}
+
+model := "openai/gpt-4o-mini"
+country, err := meshapi.Parse[Country](ctx, client.Chat.Completions,
+    meshapi.ChatCompletionParams{
+        Model:    &model,
+        Messages: []meshapi.ChatMessage{{Role: "user", Content: "Give me structured facts about France."}},
+    },
+)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println(country.Capital, country.PopulationMillions) // typed
+```
+
+Options: `meshapi.WithMaxRetries(n)` re-prompts on a decode failure (default 0,
+each retry is a billed call); `meshapi.WithSchema(map[string]any{...})` overrides
+the auto-derived schema; `meshapi.WithSchemaName("...")` sets the schema label.
+
+> Go's `json.Unmarshal` does not enforce required fields — a missing field
+> decodes to its zero value. Type mismatches and non-JSON prose are caught.
+
+### When the model doesn't support structured output
+
+If decoding fails after any retries, `Parse` returns a `*StructuredOutputError`
+(the underlying `json` error is on `.Cause`, reachable via `errors.As`). When the
+model returns plain text instead of JSON — usually because it doesn't support
+`response_format` — the message points at the model's support:
+
+```go
+var soErr *meshapi.StructuredOutputError
+if errors.As(err, &soErr) {
+    fmt.Println(soErr.Message)
+    // "… the model returned text that is not valid JSON … Check the model's
+    //  support on the Models page (https://app.meshapi.ai/…/models) …"
+}
+```
+
+Check a model's `supports_structured_output` flag via `client.Models`, or on the
+Models page in your dashboard. `Parse` is non-streaming.
+
 ## Responses API (reasoning models)
 
 ```go

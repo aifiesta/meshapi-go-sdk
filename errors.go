@@ -34,11 +34,11 @@ func (e *MeshAPIError) Error() string {
 
 // apiErrorBody is the inner error object in the response envelope.
 type apiErrorBody struct {
-	Code              string        `json:"code"`
-	Message           string        `json:"message"`
-	Details           []interface{} `json:"details"`
+	Code              string                 `json:"code"`
+	Message           string                 `json:"message"`
+	Details           []interface{}          `json:"details"`
 	ProviderError     map[string]interface{} `json:"provider_error"`
-	RetryAfterSeconds *int          `json:"retry_after_seconds"`
+	RetryAfterSeconds *int                   `json:"retry_after_seconds"`
 }
 
 // apiErrorEnvelope is the top-level error response shape.
@@ -153,4 +153,50 @@ func newStreamInterruptedError(cause string) *MeshAPIError {
 		Code:    "stream_interrupted",
 		Message: fmt.Sprintf("stream interrupted: %s", cause),
 	}
+}
+
+// StructuredOutputError is returned by Parse when the model's response cannot be
+// decoded into the requested type.
+//
+// The most common cause is that the model does not support structured outputs
+// (response_format): the gateway forwards the field, the provider ignores it,
+// and the model returns plain text instead of JSON. The underlying json error
+// is available via Unwrap (errors.Unwrap / errors.As).
+type StructuredOutputError struct {
+	// Model is the requested model, when known.
+	Model string
+	// Cause is the underlying *json.SyntaxError / *json.UnmarshalTypeError.
+	Cause error
+	// Message is the human-readable description (with a Models-page pointer).
+	Message string
+}
+
+func (e *StructuredOutputError) Error() string { return e.Message }
+
+func (e *StructuredOutputError) Unwrap() error { return e.Cause }
+
+func newStructuredOutputError(model string, notJSON bool, cause error) *StructuredOutputError {
+	where := ""
+	if model != "" {
+		where = fmt.Sprintf(" from model %q", model)
+	}
+	var msg string
+	if notJSON {
+		msg = fmt.Sprintf(
+			"could not parse a structured response%s: the model returned text that is not valid JSON, "+
+				"which usually means it does not support structured outputs (response_format). Check the "+
+				"model's support on the Models page (%s) or the supports_structured_output flag from "+
+				"GET /v1/models, and prefer a model with first-class support (e.g. openai/* or google/gemini-*). "+
+				"Original error: %v",
+			where, modelsURL, cause,
+		)
+	} else {
+		msg = fmt.Sprintf(
+			"could not parse a structured response%s: the response was valid JSON but did not match the "+
+				"requested type. Retry with a higher WithMaxRetries, or confirm the model supports structured "+
+				"outputs on the Models page (%s). Original error: %v",
+			where, modelsURL, cause,
+		)
+	}
+	return &StructuredOutputError{Model: model, Cause: cause, Message: msg}
 }
