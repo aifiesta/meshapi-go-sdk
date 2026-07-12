@@ -205,6 +205,15 @@ type rawThing struct {
 
 func (r *rawThing) UnmarshalJSON([]byte) error { return nil }
 
+// dualDecoder implements both decoder interfaces; encoding/json prefers
+// UnmarshalJSON, so the schema must not constrain it to a string.
+type dualDecoder struct {
+	N int
+}
+
+func (d *dualDecoder) UnmarshalJSON([]byte) error { return nil }
+func (d *dualDecoder) UnmarshalText([]byte) error { return nil }
+
 func TestSchema_CustomDecoders(t *testing.T) {
 	// TextUnmarshaler -> string schema, not a struct object.
 	s, err := jsonSchemaForType(reflect.TypeOf(hexColor{}))
@@ -225,6 +234,16 @@ func TestSchema_CustomDecoders(t *testing.T) {
 	}
 	if len(r) != 0 {
 		t.Errorf("type implementing json.Unmarshaler should be unconstrained, got %v", r)
+	}
+
+	// Both interfaces -> UnmarshalJSON wins (as in encoding/json), so the
+	// schema must stay unconstrained, not "string".
+	d, err := jsonSchemaForType(reflect.TypeOf(dualDecoder{}))
+	if err != nil {
+		t.Fatalf("dualDecoder: %v", err)
+	}
+	if len(d) != 0 {
+		t.Errorf("dual-decoder type should follow UnmarshalJSON (unconstrained), got %v", d)
 	}
 }
 

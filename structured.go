@@ -204,14 +204,15 @@ func schemaFor(t reflect.Type, seen map[reflect.Type]bool) (map[string]interface
 		return map[string]interface{}{"type": "string", "format": "date-time"}, nil
 	}
 	// Types with a custom decoder don't follow their reflect kind on the wire.
-	// A TextUnmarshaler decodes from a JSON string; a bare json.Unmarshaler can
-	// accept any JSON, so leave it unconstrained. (time.Time is handled above so
-	// it keeps its date-time format.)
-	if reflect.PtrTo(t).Implements(textUnmarshalerType) {
-		return map[string]interface{}{"type": "string"}, nil
-	}
+	// encoding/json prefers UnmarshalJSON over UnmarshalText when a type
+	// implements both, so check json.Unmarshaler first: it can accept any JSON,
+	// so leave it unconstrained. A (pure) TextUnmarshaler decodes from a JSON
+	// string. (time.Time is handled above so it keeps its date-time format.)
 	if reflect.PtrTo(t).Implements(jsonUnmarshalerType) {
 		return map[string]interface{}{}, nil
+	}
+	if reflect.PtrTo(t).Implements(textUnmarshalerType) {
+		return map[string]interface{}{"type": "string"}, nil
 	}
 
 	switch t.Kind() {
