@@ -79,7 +79,11 @@ func Parse[T any](
 	}
 	schema := cfg.schema
 	if schema == nil {
-		schema = jsonSchemaForType(reflect.TypeOf((*T)(nil)).Elem())
+		var err error
+		schema, err = jsonSchemaForType(reflect.TypeOf((*T)(nil)).Elem())
+		if err != nil {
+			return zero, fmt.Errorf("meshapi: cannot build structured-output schema for %T: %w", zero, err)
+		}
 	}
 	params.ResponseFormat = map[string]interface{}{
 		"type": "json_schema",
@@ -178,122 +182,219 @@ var (
 	jsonUnmarshalerType = reflect.TypeOf((*json.Unmarshaler)(nil)).Elem()
 )
 
-// jsonSchemaForType derives a JSON schema from a Go type by reflection. It is
-// best-effort: it follows encoding/json's json-tag, embedding, and custom-decoder
-// conventions closely but does not reproduce every rule. In particular, when
-// embedded structs contribute fields with conflicting JSON names, the winner here
-// is not disambiguated the way encoding/json does at (un)marshal time. Pass
+// jsonSchemaForType derives a JSON schema from a Go type by reflection,
+// following encoding/json's conventions: json tags, embedding with the same
+// depth/tag dominance rules (an ambiguous JSON name that encoding/json would
+// ignore is omitted from the schema), custom decoders, and supported map key
+// types. It returns an error for types whose schema would accept JSON that
+// json.Unmarshal can never decode (e.g. float- or bool-keyed maps); pass
 // WithSchema to supply an explicit schema for such types.
-func jsonSchemaForType(t reflect.Type) map[string]interface{} {
+func jsonSchemaForType(t reflect.Type) (map[string]interface{}, error) {
 	return schemaFor(t, map[reflect.Type]bool{})
 }
 
-func schemaFor(t reflect.Type, seen map[reflect.Type]bool) map[string]interface{} {
+func schemaFor(t reflect.Type, seen map[reflect.Type]bool) (map[string]interface{}, error) {
 	for t != nil && t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 	if t == nil {
-		return map[string]interface{}{}
+		return map[string]interface{}{}, nil
 	}
 	if t == timeType {
-		return map[string]interface{}{"type": "string", "format": "date-time"}
+		return map[string]interface{}{"type": "string", "format": "date-time"}, nil
 	}
 	// Types with a custom decoder don't follow their reflect kind on the wire.
 	// A TextUnmarshaler decodes from a JSON string; a bare json.Unmarshaler can
 	// accept any JSON, so leave it unconstrained. (time.Time is handled above so
 	// it keeps its date-time format.)
 	if reflect.PtrTo(t).Implements(textUnmarshalerType) {
-		return map[string]interface{}{"type": "string"}
+		return map[string]interface{}{"type": "string"}, nil
 	}
 	if reflect.PtrTo(t).Implements(jsonUnmarshalerType) {
-		return map[string]interface{}{}
+		return map[string]interface{}{}, nil
 	}
 
 	switch t.Kind() {
 	case reflect.String:
-		return map[string]interface{}{"type": "string"}
+		return map[string]interface{}{"type": "string"}, nil
 	case reflect.Bool:
-		return map[string]interface{}{"type": "boolean"}
+		return map[string]interface{}{"type": "boolean"}, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return map[string]interface{}{"type": "integer"}
+		return map[string]interface{}{"type": "integer"}, nil
 	case reflect.Float32, reflect.Float64:
-		return map[string]interface{}{"type": "number"}
+		return map[string]interface{}{"type": "number"}, nil
 	case reflect.Slice, reflect.Array:
 		if t.Elem().Kind() == reflect.Uint8 { // []byte marshals to a base64 string
-			return map[string]interface{}{"type": "string"}
+			return map[string]interface{}{"type": "string"}, nil
 		}
-		return map[string]interface{}{"type": "array", "items": schemaFor(t.Elem(), seen)}
+		items, err := schemaFor(t.Elem(), seen)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"type": "array", "items": items}, nil
 	case reflect.Map:
-		// Only string-keyed maps decode from a JSON object with arbitrary keys.
-		// For non-string keys, additionalProperties would describe values json
-		// can't place, so emit a plain object instead.
-		if t.Key().Kind() == reflect.String {
-			return map[string]interface{}{
-				"type":                 "object",
-				"additionalProperties": schemaFor(t.Elem(), seen),
-			}
+		// json.Unmarshal can decode JSON object keys into string, integer, and
+		// encoding.TextUnmarshaler key types only. Anything else (float, bool,
+		// struct, ...) would yield a schema the model can satisfy but that every
+		// decode attempt — including retries — fails on, so refuse up front.
+		if !mapKeySupported(t.Key()) {
+			return nil, fmt.Errorf(
+				"unsupported map key type %s: encoding/json only decodes JSON object keys into "+
+					"string, integer, or encoding.TextUnmarshaler key types — change the key type "+
+					"or pass WithSchema", t.Key())
 		}
-		return map[string]interface{}{"type": "object"}
+		values, err := schemaFor(t.Elem(), seen)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{
+			"type":                 "object",
+			"additionalProperties": values,
+		}, nil
 	case reflect.Struct:
 		if seen[t] {
-			return map[string]interface{}{"type": "object"} // break recursive types
+			return map[string]interface{}{"type": "object"}, nil // break recursive types
 		}
 		seen[t] = true
 		defer delete(seen, t)
 		return structSchema(t, seen)
 	default: // Interface, Chan, Func, etc. -> unconstrained
-		return map[string]interface{}{}
+		return map[string]interface{}{}, nil
 	}
 }
 
-func structSchema(t reflect.Type, seen map[reflect.Type]bool) map[string]interface{} {
-	props := map[string]interface{}{}
-	required := []string{}
+// mapKeySupported mirrors json.Unmarshal's map-key rules: string kinds, integer
+// kinds, and types implementing encoding.TextUnmarshaler.
+func mapKeySupported(k reflect.Type) bool {
+	if k.Implements(textUnmarshalerType) || reflect.PtrTo(k).Implements(textUnmarshalerType) {
+		return true
+	}
+	switch k.Kind() {
+	case reflect.String,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return true
+	default:
+		return false
+	}
+}
 
-	var walk func(rt reflect.Type)
-	walk = func(rt reflect.Type) {
-		for i := 0; i < rt.NumField(); i++ {
-			f := rt.Field(i)
-			tag := f.Tag.Get("json")
-			if tag == "-" {
+// structField is one candidate for a JSON property, tagged with the embedding
+// depth it was found at so conflicts resolve the way encoding/json resolves them.
+type structField struct {
+	name      string
+	tagged    bool
+	typ       reflect.Type
+	omitempty bool
+	depth     int
+}
+
+// structSchema builds an object schema from a struct's fields, applying
+// encoding/json's field dominance rules for embedded structs: a shallower field
+// wins over a deeper one; at equal depth a json-tagged field wins over untagged;
+// a genuine tie is ambiguous — encoding/json ignores the value at decode time,
+// so the name is omitted from the schema (additionalProperties stays false).
+func structSchema(t reflect.Type, seen map[reflect.Type]bool) (map[string]interface{}, error) {
+	// Breadth-first over embedded structs so depth is the embedding level.
+	var order []string
+	byName := map[string][]structField{}
+	visited := map[reflect.Type]bool{}
+	level := []reflect.Type{t}
+	for depth := 0; len(level) > 0; depth++ {
+		var next []reflect.Type
+		for _, rt := range level {
+			if visited[rt] {
 				continue
 			}
-			// Flatten anonymous embedded structs that have no json tag.
-			if f.Anonymous && tag == "" {
-				ft := f.Type
-				for ft.Kind() == reflect.Ptr {
-					ft = ft.Elem()
-				}
-				if ft.Kind() == reflect.Struct {
-					walk(ft)
+			visited[rt] = true
+			for i := 0; i < rt.NumField(); i++ {
+				f := rt.Field(i)
+				tag := f.Tag.Get("json")
+				if tag == "-" {
 					continue
 				}
-			}
-			if f.PkgPath != "" { // unexported
-				continue
-			}
-
-			name := f.Name
-			omitempty := false
-			if tag != "" {
-				parts := strings.Split(tag, ",")
-				if parts[0] != "" {
-					name = parts[0]
-				}
-				for _, p := range parts[1:] {
-					if p == "omitempty" {
-						omitempty = true
+				// Untagged anonymous embedded structs flatten into the parent at
+				// the next depth (their promoted exported fields count even when
+				// the embedded type itself is unexported, as in encoding/json).
+				if f.Anonymous && tag == "" {
+					ft := f.Type
+					for ft.Kind() == reflect.Ptr {
+						ft = ft.Elem()
+					}
+					if ft.Kind() == reflect.Struct {
+						next = append(next, ft)
+						continue
 					}
 				}
-			}
-			props[name] = schemaFor(f.Type, seen)
-			if f.Type.Kind() != reflect.Ptr && !omitempty {
-				required = append(required, name)
+				if f.PkgPath != "" { // unexported
+					continue
+				}
+
+				name := f.Name
+				tagged := false
+				omitempty := false
+				if tag != "" {
+					parts := strings.Split(tag, ",")
+					if parts[0] != "" {
+						name = parts[0]
+						tagged = true
+					}
+					for _, p := range parts[1:] {
+						if p == "omitempty" {
+							omitempty = true
+						}
+					}
+				}
+				fld := structField{name: name, tagged: tagged, typ: f.Type, omitempty: omitempty, depth: depth}
+				if _, ok := byName[name]; !ok {
+					order = append(order, name)
+				}
+				byName[name] = append(byName[name], fld)
 			}
 		}
+		level = next
 	}
-	walk(t)
+
+	props := map[string]interface{}{}
+	required := []string{}
+	for _, name := range order {
+		group := byName[name]
+		minDepth := group[0].depth
+		for _, g := range group {
+			if g.depth < minDepth {
+				minDepth = g.depth
+			}
+		}
+		var atMin []structField
+		for _, g := range group {
+			if g.depth == minDepth {
+				atMin = append(atMin, g)
+			}
+		}
+		winner := atMin[0]
+		if len(atMin) > 1 {
+			var taggedAtMin []structField
+			for _, g := range atMin {
+				if g.tagged {
+					taggedAtMin = append(taggedAtMin, g)
+				}
+			}
+			if len(taggedAtMin) != 1 {
+				continue // ambiguous — encoding/json drops the field, so does the schema
+			}
+			winner = taggedAtMin[0]
+		}
+
+		ps, err := schemaFor(winner.typ, seen)
+		if err != nil {
+			return nil, err
+		}
+		props[name] = ps
+		if winner.typ.Kind() != reflect.Ptr && !winner.omitempty {
+			required = append(required, name)
+		}
+	}
 
 	schema := map[string]interface{}{
 		"type":                 "object",
@@ -303,5 +404,5 @@ func structSchema(t reflect.Type, seen map[reflect.Type]bool) map[string]interfa
 	if len(required) > 0 {
 		schema["required"] = required
 	}
-	return schema
+	return schema, nil
 }

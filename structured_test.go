@@ -74,7 +74,10 @@ func TestJSONSchemaForType(t *testing.T) {
 		Address addr     `json:"address"` // nested
 		hidden  string   // unexported -> skipped
 	}
-	s := jsonSchemaForType(reflect.TypeOf(person{}))
+	s, err := jsonSchemaForType(reflect.TypeOf(person{}))
+	if err != nil {
+		t.Fatalf("jsonSchemaForType: %v", err)
+	}
 	if s["type"] != "object" {
 		t.Fatalf("type = %v", s["type"])
 	}
@@ -111,7 +114,10 @@ func TestJSONSchemaForType(t *testing.T) {
 }
 
 func TestSchema_MapKeys(t *testing.T) {
-	strMap := jsonSchemaForType(reflect.TypeOf(map[string]int{}))
+	strMap, err := jsonSchemaForType(reflect.TypeOf(map[string]int{}))
+	if err != nil {
+		t.Fatalf("map[string]int: %v", err)
+	}
 	ap, ok := strMap["additionalProperties"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("map[string]int should have additionalProperties, got %v", strMap)
@@ -120,19 +126,67 @@ func TestSchema_MapKeys(t *testing.T) {
 		t.Errorf("map[string]int values should be integer, got %v", ap)
 	}
 
-	intMap := jsonSchemaForType(reflect.TypeOf(map[int]string{}))
-	if _, present := intMap["additionalProperties"]; present {
-		t.Errorf("map[int]string should not emit additionalProperties, got %v", intMap)
+	// Integer keys decode from JSON object keys, so they keep a value schema.
+	intMap, err := jsonSchemaForType(reflect.TypeOf(map[int]string{}))
+	if err != nil {
+		t.Fatalf("map[int]string: %v", err)
 	}
-	if intMap["type"] != "object" {
-		t.Errorf("map[int]string type = %v", intMap["type"])
+	if _, present := intMap["additionalProperties"]; !present {
+		t.Errorf("map[int]string (json-decodable keys) should have additionalProperties, got %v", intMap)
 	}
 
 	// A defined type whose underlying kind is string still counts as string-keyed.
 	type keyT string
-	defMap := jsonSchemaForType(reflect.TypeOf(map[keyT]int{}))
+	defMap, err := jsonSchemaForType(reflect.TypeOf(map[keyT]int{}))
+	if err != nil {
+		t.Fatalf("map[keyT]int: %v", err)
+	}
 	if _, present := defMap["additionalProperties"]; !present {
 		t.Errorf("map[keyT]int (underlying string) should have additionalProperties, got %v", defMap)
+	}
+
+	// TextUnmarshaler keys are decodable too.
+	tuMap, err := jsonSchemaForType(reflect.TypeOf(map[hexColor]int{}))
+	if err != nil {
+		t.Fatalf("map[hexColor]int (TextUnmarshaler key): %v", err)
+	}
+	if _, present := tuMap["additionalProperties"]; !present {
+		t.Errorf("TextUnmarshaler-keyed map should have additionalProperties, got %v", tuMap)
+	}
+}
+
+func TestSchema_UnsupportedMapKeysError(t *testing.T) {
+	for _, typ := range []reflect.Type{
+		reflect.TypeOf(map[float64]string{}),
+		reflect.TypeOf(map[bool]string{}),
+	} {
+		if _, err := jsonSchemaForType(typ); err == nil {
+			t.Errorf("%v: expected error for json-undecodable map key, got none", typ)
+		} else if !strings.Contains(err.Error(), "unsupported map key type") {
+			t.Errorf("%v: error should name the unsupported key, got %v", typ, err)
+		}
+	}
+
+	// Nested occurrences surface too.
+	type holder struct {
+		Data map[float64]string `json:"data"`
+	}
+	if _, err := jsonSchemaForType(reflect.TypeOf(holder{})); err == nil {
+		t.Error("nested unsupported map key should error")
+	}
+}
+
+func TestParse_UnsupportedMapKeyFailsBeforeRequest(t *testing.T) {
+	type bad struct {
+		Data map[bool]string `json:"data"`
+	}
+	client, calls := newParseServer(t, chatPayload(`{}`))
+	_, err := Parse[bad](context.Background(), client.Chat.Completions, parseParams())
+	if err == nil || !strings.Contains(err.Error(), "unsupported map key type") {
+		t.Fatalf("expected schema error, got %v", err)
+	}
+	if len(*calls) != 0 {
+		t.Fatalf("no HTTP request should be made, got %d", len(*calls))
 	}
 }
 
@@ -153,7 +207,10 @@ func (r *rawThing) UnmarshalJSON([]byte) error { return nil }
 
 func TestSchema_CustomDecoders(t *testing.T) {
 	// TextUnmarshaler -> string schema, not a struct object.
-	s := jsonSchemaForType(reflect.TypeOf(hexColor{}))
+	s, err := jsonSchemaForType(reflect.TypeOf(hexColor{}))
+	if err != nil {
+		t.Fatalf("hexColor: %v", err)
+	}
 	if s["type"] != "string" {
 		t.Fatalf("type implementing TextUnmarshaler should map to string schema, got %v", s)
 	}
@@ -162,9 +219,109 @@ func TestSchema_CustomDecoders(t *testing.T) {
 	}
 
 	// json.Unmarshaler -> unconstrained {}.
-	r := jsonSchemaForType(reflect.TypeOf(rawThing{}))
+	r, err := jsonSchemaForType(reflect.TypeOf(rawThing{}))
+	if err != nil {
+		t.Fatalf("rawThing: %v", err)
+	}
 	if len(r) != 0 {
 		t.Errorf("type implementing json.Unmarshaler should be unconstrained, got %v", r)
+	}
+}
+
+// ── embedded field dominance (encoding/json rules) ────────────────────────────
+
+type embA struct {
+	Shared string
+	OnlyA  string `json:"only_a"`
+}
+
+type embB struct {
+	Shared string
+}
+
+func TestSchema_EmbeddedConflictDropsAmbiguousName(t *testing.T) {
+	// Two embedded structs expose "Shared" at the same depth with equal tag
+	// status — encoding/json ignores the value, so the schema omits the name.
+	type both struct {
+		embA
+		embB
+	}
+	s, err := jsonSchemaForType(reflect.TypeOf(both{}))
+	if err != nil {
+		t.Fatalf("jsonSchemaForType: %v", err)
+	}
+	props := s["properties"].(map[string]interface{})
+	if _, ok := props["Shared"]; ok {
+		t.Errorf("ambiguous embedded name should be dropped, got %v", props)
+	}
+	if _, ok := props["only_a"]; !ok {
+		t.Errorf("non-conflicting embedded field should survive, got %v", props)
+	}
+	if req, ok := s["required"].([]string); ok {
+		for _, r := range req {
+			if r == "Shared" {
+				t.Errorf("dropped name must not be required, got %v", req)
+			}
+		}
+	}
+	// Sanity: encoding/json agrees — the ambiguous key is ignored on decode.
+	var b both
+	if err := json.Unmarshal([]byte(`{"Shared":"x","only_a":"y"}`), &b); err != nil {
+		t.Fatal(err)
+	}
+	if b.embA.Shared != "" || b.embB.Shared != "" {
+		t.Fatalf("expected encoding/json to ignore ambiguous key, got %+v", b)
+	}
+}
+
+func TestSchema_OuterFieldShadowsEmbedded(t *testing.T) {
+	// The outer (shallower) field wins regardless of declaration order.
+	type outer struct {
+		embA
+		Shared int // depth 0 beats embA's depth 1
+	}
+	s, err := jsonSchemaForType(reflect.TypeOf(outer{}))
+	if err != nil {
+		t.Fatalf("jsonSchemaForType: %v", err)
+	}
+	props := s["properties"].(map[string]interface{})
+	if got := props["Shared"].(map[string]interface{})["type"]; got != "integer" {
+		t.Errorf("outer field should shadow embedded (integer), got %v", got)
+	}
+}
+
+func TestSchema_TaggedBeatsUntaggedAtSameDepth(t *testing.T) {
+	// Same JSON name ("Pick") at the same depth; only one is json-tagged.
+	// encoding/json lets the tagged field win — the schema must agree.
+	type viaTag struct {
+		N int `json:"Pick"`
+	}
+	type viaName struct {
+		Pick string
+	}
+	type mix struct {
+		viaTag
+		viaName
+	}
+	s, err := jsonSchemaForType(reflect.TypeOf(mix{}))
+	if err != nil {
+		t.Fatalf("jsonSchemaForType: %v", err)
+	}
+	props := s["properties"].(map[string]interface{})
+	got, ok := props["Pick"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("tagged field should win, got %v", props)
+	}
+	if got["type"] != "integer" {
+		t.Errorf("winner should be the tagged int field, got %v", got)
+	}
+	// Sanity: encoding/json picks the tagged field on decode.
+	var m mix
+	if err := json.Unmarshal([]byte(`{"Pick":7}`), &m); err != nil {
+		t.Fatal(err)
+	}
+	if m.viaTag.N != 7 || m.viaName.Pick != "" {
+		t.Fatalf("expected tagged field to receive the value, got %+v", m)
 	}
 }
 
