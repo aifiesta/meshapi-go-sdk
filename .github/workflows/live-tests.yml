@@ -49,6 +49,7 @@ jobs:
       # daily cron) runs the full suite — PR behavior unchanged.
       - name: Determine suite mode
         id: mode
+        if: always()   # compute even if an earlier step failed, so summary/alert still show the suite
         run: |
           if [ "${{ github.event.schedule }}" = "29 */2 * * *" ]; then
             echo "value=smoke" >> "$GITHUB_OUTPUT"
