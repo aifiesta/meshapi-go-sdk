@@ -13,7 +13,7 @@ on:
     # so these runs exercise the live staging API on a fixed cadence — independent
     # of whether anyone opened a PR. Two cadences:
     - cron: "29 */2 * * *"   # every 2h — cheap smoke subset (fast outage detection)
-    - cron: "0 7 * * *"      # daily 07:00 UTC — full live suite
+    - cron: "0 7 * * *"      # daily 07:00 UTC — full live suite (gates nothing; report-only)
 
 env:
   # Secrets (set in repo → Settings → Secrets and variables → Actions → Secrets)
@@ -44,17 +44,27 @@ jobs:
         with:
           go-version: "1.22"
 
-      # Smoke = fast subset run by the 2-hourly staging canary (models list, one
-      # chat, embeddings, one stream, 401). Every other trigger (push, PR, manual,
-      # daily cron) runs the full suite — PR behavior unchanged.
+      # Gating where safe (MESH-368): PRs and pushes run the cheap SMOKE subset
+      # (models list, one chat, embeddings, one stream, 401) so they gate
+      # reliably green — the full suite includes slow/flaky calls (image
+      # generation, realtime WebSocket) that intermittently exceed provider
+      # latency and shouldn't block unrelated PRs. The FULL suite still runs,
+      # just not as a PR gate: on the daily staging cron and on manual
+      # workflow_dispatch (e.g. to investigate or confirm a fix).
       - name: Determine suite mode
         id: mode
         if: always()   # compute even if an earlier step failed, so summary/alert still show the suite
         run: |
-          if [ "${{ github.event.schedule }}" = "29 */2 * * *" ]; then
-            echo "value=smoke" >> "$GITHUB_OUTPUT"
-          else
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ "${{ github.event.schedule }}" = "29 */2 * * *" ]; then
+              echo "value=smoke" >> "$GITHUB_OUTPUT"
+            else
+              echo "value=full" >> "$GITHUB_OUTPUT"
+            fi
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "value=full" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=smoke" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run live tests (${{ steps.mode.outputs.value }})
