@@ -65,6 +65,9 @@ func (h *httpClient) do(ctx context.Context, req *http.Request) (*http.Response,
 			req.Header.Set(k, v)
 		}
 	}
+	if err := applyRequestID(ctx, req.Header); err != nil {
+		return nil, err
+	}
 
 	maxRetries := h.cfg.maxRetries()
 
@@ -133,6 +136,20 @@ func retryAfterFromResponse(resp *http.Response) *int {
 	return &n
 }
 
+// decodeJSON decodes a successful JSON response body into dst and, when dst
+// embeds ResponseMeta, stamps the response's X-Request-Id onto it. This is the
+// single choke point for decoding non-streaming JSON responses — every decode
+// path must go through it so ResponseMeta is populated consistently.
+func decodeJSON(resp *http.Response, dst interface{}) error {
+	if err := json.NewDecoder(resp.Body).Decode(dst); err != nil {
+		return err
+	}
+	if setter, ok := dst.(interface{ setRequestID(string) }); ok {
+		setter.setRequestID(resp.Header.Get(requestIDHeader))
+	}
+	return nil
+}
+
 // get performs a GET request and decodes the JSON response into dst.
 func (h *httpClient) get(ctx context.Context, path string, params url.Values, dst interface{}) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, h.buildURL(path, params), nil)
@@ -151,7 +168,7 @@ func (h *httpClient) get(ctx context.Context, path string, params url.Values, ds
 	if resp.StatusCode == 204 {
 		return nil
 	}
-	return json.NewDecoder(resp.Body).Decode(dst)
+	return decodeJSON(resp, dst)
 }
 
 // post performs a POST request with a JSON body and decodes the response.
@@ -268,7 +285,7 @@ func (h *httpClient) postMultipart(ctx context.Context, path string, fields map[
 	if resp.StatusCode >= 400 {
 		return newErrorFromResponse(resp)
 	}
-	return json.NewDecoder(resp.Body).Decode(dst)
+	return decodeJSON(resp, dst)
 }
 
 func (h *httpClient) jsonRequest(ctx context.Context, method, path string, body interface{}, dst interface{}) error {
@@ -302,7 +319,7 @@ func (h *httpClient) jsonRequest(ctx context.Context, method, path string, body 
 			Message: string(raw),
 		}
 	}
-	return json.NewDecoder(resp.Body).Decode(dst)
+	return decodeJSON(resp, dst)
 }
 
 // stream opens a streaming POST and returns the raw response for SSE parsing.
@@ -321,6 +338,9 @@ func (h *httpClient) stream(ctx context.Context, path string, body interface{}) 
 		req.Header.Set(k, v)
 	}
 	req.Header.Set("Accept", "text/event-stream")
+	if err := applyRequestID(ctx, req.Header); err != nil {
+		return nil, err
+	}
 
 	resp, err := h.client.Do(req)
 	if err != nil {

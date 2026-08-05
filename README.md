@@ -444,6 +444,27 @@ if err != nil {
 }
 ```
 
+## Request IDs
+
+Every response carries an `X-Request-Id` (format `req_<ULID>`), exposed on successful responses via the embedded `ResponseMeta`:
+
+```go
+resp, _ := client.Chat.Completions.Create(ctx, params)
+fmt.Println(resp.RequestID) // "req_01J..." — quote this when reporting issues
+```
+
+Supply your own id to correlate a call with your logs (allowed charset `[A-Za-z0-9._:-]`, 1–64 chars):
+
+```go
+ctx = meshapi.WithRequestID(ctx, "my-trace-id-123")
+resp, err := client.Chat.Completions.Create(ctx, params)
+// resp.RequestID == "my-trace-id-123" (echoed by the server)
+```
+
+An id outside the allowed charset/length makes the call fail client-side before any network I/O (the backend would otherwise silently ignore it and mint its own).
+
+Error responses expose the id too, via `MeshAPIError.RequestID` (see [Error handling](#error-handling)). Two exceptions: `WebSearchResponse` and per-model `CompareResponse.Results[i]` already carry a `request_id` in the body, exposed as their own `RequestID` fields. Streaming methods send the header but expose no response metadata — use `WithRequestID` when you need to correlate a stream with server logs.
+
 ## Retry / backoff
 
 Retries on 429/502/503/504 with exponential backoff (default 3 retries, 500 ms base, 30 s max, ±20% jitter). Respects `Retry-After`.

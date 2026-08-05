@@ -4,6 +4,26 @@ package meshapi
 import "encoding/json"
 
 // ---------------------------------------------------------------------------
+// Transport metadata
+// ---------------------------------------------------------------------------
+
+// ResponseMeta carries transport-level metadata about the HTTP response a
+// value was decoded from. It is embedded in the top-level response structs
+// returned by resource methods and populated by the transport after a
+// successful decode — it never round-trips through JSON.
+//
+// Note: it is only populated on the value a resource method returns directly.
+// The same struct nested inside another response (e.g. ModelInfo items inside
+// ModelsPage) carries an empty ResponseMeta.
+type ResponseMeta struct {
+	// RequestID is the server-assigned X-Request-Id (req_<ULID>), or the
+	// echoed client-supplied id when the request was made with WithRequestID.
+	RequestID string `json:"-"`
+}
+
+func (m *ResponseMeta) setRequestID(id string) { m.RequestID = id }
+
+// ---------------------------------------------------------------------------
 // Chat Completions
 // ---------------------------------------------------------------------------
 
@@ -167,6 +187,8 @@ type ChatCompletionChoice struct {
 
 // ChatCompletionResponse is the full non-streaming response body.
 type ChatCompletionResponse struct {
+	ResponseMeta
+
 	ID                string                 `json:"id"`
 	Object            string                 `json:"object"`
 	Created           int64                  `json:"created"`
@@ -249,6 +271,10 @@ type ModelPricing struct {
 
 // ModelInfo describes an available model.
 type ModelInfo struct {
+	// ResponseMeta is populated only when ModelInfo is the top-level response
+	// (Models.Get); items inside a list/page carry an empty ResponseMeta.
+	ResponseMeta
+
 	// Required fields
 	ID                     string        `json:"id"`
 	Name                   string        `json:"name"`
@@ -329,6 +355,8 @@ type UpdateTemplateParams struct {
 
 // TemplateSummary is the response shape for all template operations.
 type TemplateSummary struct {
+	ResponseMeta
+
 	ID          string                   `json:"id"`
 	Name        string                   `json:"name"`
 	Owner       *string                  `json:"owner"`
@@ -453,6 +481,8 @@ type EmbeddingsUsage struct {
 }
 
 type EmbeddingsResponse struct {
+	ResponseMeta
+
 	Object string           `json:"object"`
 	Data   []EmbeddingItem  `json:"data"`
 	Model  string           `json:"model"`
@@ -525,6 +555,8 @@ type ResponsesUsage struct {
 }
 
 type ResponsesResponse struct {
+	ResponseMeta
+
 	ID     *string                `json:"id,omitempty"`
 	Object *string                `json:"object,omitempty"`
 	Model  *string                `json:"model,omitempty"`
@@ -576,6 +608,11 @@ type ModelCompareResult struct {
 }
 
 type CompareResponse struct {
+	// ResponseMeta.RequestID is the X-Request-Id of the compare request
+	// itself. It is distinct from Results[i].RequestID, which is the per-model
+	// request id from the response body for each compared model.
+	ResponseMeta
+
 	ComparisonID           string               `json:"comparison_id"`
 	Object                 string               `json:"object"`
 	Created                int64                `json:"created"`
@@ -606,6 +643,8 @@ type CreateBatchParams struct {
 }
 
 type BatchObject struct {
+	ResponseMeta
+
 	ID               string                   `json:"id"`
 	Object           *string                  `json:"object,omitempty"`
 	Endpoint         *string                  `json:"endpoint,omitempty"`
@@ -627,6 +666,8 @@ type BatchObject struct {
 }
 
 type BatchListResponse struct {
+	ResponseMeta
+
 	Object  string        `json:"object"`
 	Data    []BatchObject `json:"data"`
 	HasMore bool          `json:"has_more"`
@@ -678,6 +719,8 @@ type ImageUsage struct {
 }
 
 type ImageGenerationResponse struct {
+	ResponseMeta
+
 	Created      int64       `json:"created"`
 	Data         []ImageItem `json:"data"`
 	Background   *string     `json:"background,omitempty"`
@@ -711,6 +754,8 @@ type UploadFileParams struct {
 
 // InitUploadResponse is returned by POST /v1/files (RAG).
 type InitUploadResponse struct {
+	ResponseMeta
+
 	FileID    string `json:"file_id"`
 	SignedURL string `json:"signed_url"`
 	ExpiresAt string `json:"expires_at"`
@@ -718,6 +763,8 @@ type InitUploadResponse struct {
 
 // RagFileStatus represents the processing state of a RAG file.
 type RagFileStatus struct {
+	ResponseMeta
+
 	FileID             string   `json:"file_id"`
 	UploadStatus       string   `json:"upload_status"`
 	FileName           string   `json:"file_name"`
@@ -737,6 +784,8 @@ type RagFileStatus struct {
 
 // RagFileListResponse is returned by GET /v1/files (RAG).
 type RagFileListResponse struct {
+	ResponseMeta
+
 	Files  []RagFileStatus `json:"files"`
 	Total  int             `json:"total"`
 	Limit  int             `json:"limit"`
@@ -766,6 +815,8 @@ type BulkEmbedResult struct {
 
 // BulkEmbedResponse is returned by POST /v1/files/embed.
 type BulkEmbedResponse struct {
+	ResponseMeta
+
 	Results []BulkEmbedResult `json:"results"`
 }
 
@@ -795,6 +846,8 @@ type SearchResult struct {
 
 // SearchResponse is returned by POST /v1/files/search.
 type SearchResponse struct {
+	ResponseMeta
+
 	Results []SearchResult `json:"results"`
 }
 
@@ -888,6 +941,8 @@ type AudioTranslationParams struct {
 }
 
 type TranscriptionResponse struct {
+	ResponseMeta
+
 	Text string `json:"text"`
 }
 
@@ -904,6 +959,8 @@ type ListVoicesParams struct {
 }
 
 type Voice struct {
+	ResponseMeta
+
 	VoiceID     string `json:"voice_id"`
 	Name        string `json:"name"`
 	Category    string `json:"category"`
@@ -915,6 +972,8 @@ type Voice struct {
 }
 
 type VoicesResponse struct {
+	ResponseMeta
+
 	Voices []Voice `json:"voices"`
 	// Pointers so an omitted has_more / total_count is distinguishable from a
 	// real zero value (e.g. paginate while HasMore != nil && *HasMore).
@@ -963,6 +1022,8 @@ type VideoGenerationParams struct {
 
 // CreateVideoGenerationResponse is the response from POST /v1/video/generations.
 type CreateVideoGenerationResponse struct {
+	ResponseMeta
+
 	ID string `json:"id"`
 }
 
@@ -986,6 +1047,8 @@ type VideoTaskUsage struct {
 
 // VideoTaskResponse is the shape of a single video generation task.
 type VideoTaskResponse struct {
+	ResponseMeta
+
 	ID                    string            `json:"id"`
 	Status                string            `json:"status"`
 	Model                 *string           `json:"model,omitempty"`
@@ -1021,6 +1084,8 @@ type ListVideoGenerationsParams struct {
 
 // VideoTaskListResponse is the response from GET /v1/video/generations.
 type VideoTaskListResponse struct {
+	ResponseMeta
+
 	Object  string              `json:"object"`
 	Data    []VideoTaskResponse `json:"data"`
 	HasMore bool                `json:"has_more"`
@@ -1069,6 +1134,8 @@ type ModerationResult struct {
 }
 
 type ModerationResponse struct {
+	ResponseMeta
+
 	ID      string             `json:"id"`
 	Model   string             `json:"model"`
 	Results []ModerationResult `json:"results"`
@@ -1097,6 +1164,10 @@ type WebSearchResultItem struct {
 	PublishedDate *string  `json:"published_date,omitempty"`
 }
 
+// WebSearchResponse deliberately does NOT embed ResponseMeta: it already
+// declares its own RequestID field, parsed from the response body's
+// "request_id" (which the backend sets to the same value as the X-Request-Id
+// header). Embedding ResponseMeta here would confusingly shadow that field.
 type WebSearchResponse struct {
 	Query   string                `json:"query"`
 	Answer  *string               `json:"answer,omitempty"`
@@ -1123,6 +1194,8 @@ type AutoRouterMeta struct {
 }
 
 type RouterSelectResponse struct {
+	ResponseMeta
+
 	Model           string         `json:"model"`
 	AutoRouter      AutoRouterMeta `json:"auto_router"`
 	ReasoningEffort *string        `json:"reasoning_effort,omitempty"`
@@ -1148,6 +1221,8 @@ type ModelSearchParams struct {
 }
 
 type ModelsPage struct {
+	ResponseMeta
+
 	Items  []ModelInfo `json:"items"`
 	Total  int         `json:"total"`
 	Limit  int         `json:"limit"`
@@ -1171,6 +1246,8 @@ type ResponsesListItem struct {
 }
 
 type ResponsesListResponse struct {
+	ResponseMeta
+
 	Object  *string             `json:"object,omitempty"`
 	Data    []ResponsesListItem `json:"data"`
 	HasMore bool                `json:"has_more"`
