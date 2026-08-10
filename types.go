@@ -167,6 +167,8 @@ type ChatCompletionChoice struct {
 
 // ChatCompletionResponse is the full non-streaming response body.
 type ChatCompletionResponse struct {
+	ResponseMeta
+
 	ID                string                 `json:"id"`
 	Object            string                 `json:"object"`
 	Created           int64                  `json:"created"`
@@ -213,38 +215,38 @@ type ModelPricing struct {
 	PromptUSDPer1K     *string `json:"prompt_usd_per_1k,omitempty"`
 	CompletionUSDPer1K *string `json:"completion_usd_per_1k,omitempty"`
 	// Optional
-	PricingUnit                          *string `json:"pricing_unit,omitempty"`
-	PromptUSDPer1M                       *string `json:"prompt_usd_per_1m,omitempty"`
-	CompletionUSDPer1M                   *string `json:"completion_usd_per_1m,omitempty"`
-	ImageOutputUSDPerImage               *string `json:"image_output_usd_per_image,omitempty"`
-	RequestUSD                           *string `json:"request_usd,omitempty"`
-	LongContextInputUSDPer1M             *string `json:"long_context_input_usd_per_1m,omitempty"`
-	LongContextOutputUSDPer1M            *string `json:"long_context_output_usd_per_1m,omitempty"`
-	CacheReadInputUSDPer1M               *string `json:"cache_read_input_usd_per_1m,omitempty"`
-	CacheWriteInputUSDPer1M              *string `json:"cache_write_input_usd_per_1m,omitempty"`
-	CacheReadAudioInputUSDPer1M          *string `json:"cache_read_audio_input_usd_per_1m,omitempty"`
-	LongContextCacheReadInputUSDPer1M    *string `json:"long_context_cache_read_input_usd_per_1m,omitempty"`
-	LongContextCacheWriteInputUSDPer1M   *string `json:"long_context_cache_write_input_usd_per_1m,omitempty"`
-	BatchInputUSDPer1M                   *string `json:"batch_input_usd_per_1m,omitempty"`
-	BatchOutputUSDPer1M                  *string `json:"batch_output_usd_per_1m,omitempty"`
-	TrainingUSDPer1M                     *string `json:"training_usd_per_1m,omitempty"`
-	FineTunedInputUSDPer1M               *string `json:"fine_tuned_input_usd_per_1m,omitempty"`
-	FineTunedOutputUSDPer1M              *string `json:"fine_tuned_output_usd_per_1m,omitempty"`
-	AudioInputUSDPer1M                   *string `json:"audio_input_usd_per_1m,omitempty"`
-	AudioOutputUSDPer1M                  *string `json:"audio_output_usd_per_1m,omitempty"`
-	TranscriptionUSDPer1M                *string `json:"transcription_usd_per_1m,omitempty"`
-	CachedAudioInputUSDPer1M             *string `json:"cached_audio_input_usd_per_1m,omitempty"`
-	CachedTextInputUSDPer1M              *string `json:"cached_text_input_usd_per_1m,omitempty"`
-	CacheHitUSDPer1M                     *string `json:"cache_hit_usd_per_1m,omitempty"`
-	OutputWithAudioUSDPer1M              *string `json:"output_with_audio_usd_per_1m,omitempty"`
-	OutputWithVideoUSDPer1M              *string `json:"output_with_video_usd_per_1m,omitempty"`
-	ImageInputUSDPerImage                *string `json:"image_input_usd_per_image,omitempty"`
-	ImageOutputSize                      *string `json:"image_output_size,omitempty"`
-	EffectiveDate                        *string `json:"effective_date,omitempty"`
-	DeprecatedDate                       *string `json:"deprecated_date,omitempty"`
-	Notes                                *string `json:"notes,omitempty"`
-	SourceURL                            *string `json:"source_url,omitempty"`
-	DiscountPct                          *string `json:"discount_pct,omitempty"`
+	PricingUnit                        *string `json:"pricing_unit,omitempty"`
+	PromptUSDPer1M                     *string `json:"prompt_usd_per_1m,omitempty"`
+	CompletionUSDPer1M                 *string `json:"completion_usd_per_1m,omitempty"`
+	ImageOutputUSDPerImage             *string `json:"image_output_usd_per_image,omitempty"`
+	RequestUSD                         *string `json:"request_usd,omitempty"`
+	LongContextInputUSDPer1M           *string `json:"long_context_input_usd_per_1m,omitempty"`
+	LongContextOutputUSDPer1M          *string `json:"long_context_output_usd_per_1m,omitempty"`
+	CacheReadInputUSDPer1M             *string `json:"cache_read_input_usd_per_1m,omitempty"`
+	CacheWriteInputUSDPer1M            *string `json:"cache_write_input_usd_per_1m,omitempty"`
+	CacheReadAudioInputUSDPer1M        *string `json:"cache_read_audio_input_usd_per_1m,omitempty"`
+	LongContextCacheReadInputUSDPer1M  *string `json:"long_context_cache_read_input_usd_per_1m,omitempty"`
+	LongContextCacheWriteInputUSDPer1M *string `json:"long_context_cache_write_input_usd_per_1m,omitempty"`
+	BatchInputUSDPer1M                 *string `json:"batch_input_usd_per_1m,omitempty"`
+	BatchOutputUSDPer1M                *string `json:"batch_output_usd_per_1m,omitempty"`
+	TrainingUSDPer1M                   *string `json:"training_usd_per_1m,omitempty"`
+	FineTunedInputUSDPer1M             *string `json:"fine_tuned_input_usd_per_1m,omitempty"`
+	FineTunedOutputUSDPer1M            *string `json:"fine_tuned_output_usd_per_1m,omitempty"`
+	AudioInputUSDPer1M                 *string `json:"audio_input_usd_per_1m,omitempty"`
+	AudioOutputUSDPer1M                *string `json:"audio_output_usd_per_1m,omitempty"`
+	TranscriptionUSDPer1M              *string `json:"transcription_usd_per_1m,omitempty"`
+	CachedAudioInputUSDPer1M           *string `json:"cached_audio_input_usd_per_1m,omitempty"`
+	CachedTextInputUSDPer1M            *string `json:"cached_text_input_usd_per_1m,omitempty"`
+	CacheHitUSDPer1M                   *string `json:"cache_hit_usd_per_1m,omitempty"`
+	OutputWithAudioUSDPer1M            *string `json:"output_with_audio_usd_per_1m,omitempty"`
+	OutputWithVideoUSDPer1M            *string `json:"output_with_video_usd_per_1m,omitempty"`
+	ImageInputUSDPerImage              *string `json:"image_input_usd_per_image,omitempty"`
+	ImageOutputSize                    *string `json:"image_output_size,omitempty"`
+	EffectiveDate                      *string `json:"effective_date,omitempty"`
+	DeprecatedDate                     *string `json:"deprecated_date,omitempty"`
+	Notes                              *string `json:"notes,omitempty"`
+	SourceURL                          *string `json:"source_url,omitempty"`
+	DiscountPct                        *string `json:"discount_pct,omitempty"`
 }
 
 // ModelInfo describes an available model.
@@ -262,34 +264,34 @@ type ModelInfo struct {
 	InputModalities        []string      `json:"input_modalities,omitempty"`
 	OutputModalities       []string      `json:"output_modalities,omitempty"`
 	// Optional fields
-	Brand                          *string  `json:"brand,omitempty"`
-	Provider                       *string  `json:"provider,omitempty"`
-	Description                    *string  `json:"description,omitempty"`
-	SupportsRealtime               bool     `json:"supports_realtime"`
-	SupportsEmbeddings             bool     `json:"supports_embeddings"`
-	SupportsTools                  bool     `json:"supports_tools"`
-	SupportsStructuredOutput       bool     `json:"supports_structured_output"`
+	Brand                    *string `json:"brand,omitempty"`
+	Provider                 *string `json:"provider,omitempty"`
+	Description              *string `json:"description,omitempty"`
+	SupportsRealtime         bool    `json:"supports_realtime"`
+	SupportsEmbeddings       bool    `json:"supports_embeddings"`
+	SupportsTools            bool    `json:"supports_tools"`
+	SupportsStructuredOutput bool    `json:"supports_structured_output"`
 	// SupportsSystemPrompt defaults to true in the spec (unlike the other
 	// supports_* flags which default to false), so it is a pointer: nil means
 	// the field was omitted and should be treated as true.
-	SupportsSystemPrompt           *bool    `json:"supports_system_prompt,omitempty"`
-	SupportsBatching               bool     `json:"supports_batching"`
-	SupportsBackgroundResponse     bool     `json:"supports_background_response"`
-	SupportsVideoGeneration        bool     `json:"supports_video_generation"`
-	SupportsImageEdit              bool     `json:"supports_image_edit"`
-	SupportsImageInpaint           bool     `json:"supports_image_inpaint"`
-	SupportsImageOutpaint          bool     `json:"supports_image_outpaint"`
-	SupportsImageMix               bool     `json:"supports_image_mix"`
-	SupportsImageReframe           bool     `json:"supports_image_reframe"`
-	SupportsImageUpscale           bool     `json:"supports_image_upscale"`
-	SupportsImageRemoveBackground  bool     `json:"supports_image_remove_background"`
-	SupportsImageReference         bool     `json:"supports_image_reference"`
-	ContextWindow                  *int     `json:"context_window,omitempty"`
-	StandardContextThreshold       *int     `json:"standard_context_threshold,omitempty"`
-	RealtimeSessionMaxTokens       *int     `json:"realtime_session_max_tokens,omitempty"`
-	RealtimeMaxConcurrentPerOwner  *int     `json:"realtime_max_concurrent_per_owner,omitempty"`
-	IsComposite                    bool     `json:"is_composite"`
-	CompositeModels                []string `json:"composite_models,omitempty"`
+	SupportsSystemPrompt          *bool    `json:"supports_system_prompt,omitempty"`
+	SupportsBatching              bool     `json:"supports_batching"`
+	SupportsBackgroundResponse    bool     `json:"supports_background_response"`
+	SupportsVideoGeneration       bool     `json:"supports_video_generation"`
+	SupportsImageEdit             bool     `json:"supports_image_edit"`
+	SupportsImageInpaint          bool     `json:"supports_image_inpaint"`
+	SupportsImageOutpaint         bool     `json:"supports_image_outpaint"`
+	SupportsImageMix              bool     `json:"supports_image_mix"`
+	SupportsImageReframe          bool     `json:"supports_image_reframe"`
+	SupportsImageUpscale          bool     `json:"supports_image_upscale"`
+	SupportsImageRemoveBackground bool     `json:"supports_image_remove_background"`
+	SupportsImageReference        bool     `json:"supports_image_reference"`
+	ContextWindow                 *int     `json:"context_window,omitempty"`
+	StandardContextThreshold      *int     `json:"standard_context_threshold,omitempty"`
+	RealtimeSessionMaxTokens      *int     `json:"realtime_session_max_tokens,omitempty"`
+	RealtimeMaxConcurrentPerOwner *int     `json:"realtime_max_concurrent_per_owner,omitempty"`
+	IsComposite                   bool     `json:"is_composite"`
+	CompositeModels               []string `json:"composite_models,omitempty"`
 }
 
 // ListModelsParams holds optional query parameters for listing models.
@@ -370,14 +372,14 @@ type MultimodalEmbeddingInput struct {
 }
 
 type EmbeddingsParams struct {
-	Model           *string     `json:"model,omitempty"`
-	Input           interface{} `json:"input"` // string | []string | []int | [][]int | []MultimodalEmbeddingInput
-	Dimensions      *int        `json:"dimensions,omitempty"`
-	EncodingFormat  *string     `json:"encoding_format,omitempty"` // "float" | "base64"
-	InputType       *string     `json:"input_type,omitempty"`
-	Provider        interface{} `json:"provider,omitempty"`
-	User            *string     `json:"user,omitempty"`
-	Instructions    *string     `json:"instructions,omitempty"`
+	Model           *string                `json:"model,omitempty"`
+	Input           interface{}            `json:"input"` // string | []string | []int | [][]int | []MultimodalEmbeddingInput
+	Dimensions      *int                   `json:"dimensions,omitempty"`
+	EncodingFormat  *string                `json:"encoding_format,omitempty"` // "float" | "base64"
+	InputType       *string                `json:"input_type,omitempty"`
+	Provider        interface{}            `json:"provider,omitempty"`
+	User            *string                `json:"user,omitempty"`
+	Instructions    *string                `json:"instructions,omitempty"`
 	SparseEmbedding map[string]interface{} `json:"sparse_embedding,omitempty"`
 }
 
@@ -453,6 +455,8 @@ type EmbeddingsUsage struct {
 }
 
 type EmbeddingsResponse struct {
+	ResponseMeta
+
 	Object string           `json:"object"`
 	Data   []EmbeddingItem  `json:"data"`
 	Model  string           `json:"model"`
@@ -525,6 +529,8 @@ type ResponsesUsage struct {
 }
 
 type ResponsesResponse struct {
+	ResponseMeta
+
 	ID     *string                `json:"id,omitempty"`
 	Object *string                `json:"object,omitempty"`
 	Model  *string                `json:"model,omitempty"`
@@ -576,6 +582,8 @@ type ModelCompareResult struct {
 }
 
 type CompareResponse struct {
+	ResponseMeta
+
 	ComparisonID           string               `json:"comparison_id"`
 	Object                 string               `json:"object"`
 	Created                int64                `json:"created"`
@@ -627,6 +635,8 @@ type BatchObject struct {
 }
 
 type BatchListResponse struct {
+	ResponseMeta
+
 	Object  string        `json:"object"`
 	Data    []BatchObject `json:"data"`
 	HasMore bool          `json:"has_more"`
@@ -648,19 +658,19 @@ type ImageGenerationParams struct {
 	OutputFormat   *string `json:"output_format,omitempty"`   // "png" | "jpeg" | "webp"
 	Stream         *bool   `json:"stream,omitempty"`
 	// Additional spec fields
-	AspectRatio                        *string                `json:"aspect_ratio,omitempty"`
-	Resolution                         *string                `json:"resolution,omitempty"`
-	OutputCompression                  *int                   `json:"output_compression,omitempty"` // 0..100
-	Background                         *string                `json:"background,omitempty"`         // "transparent"|"opaque"|"auto"
-	Moderation                         *string                `json:"moderation,omitempty"`         // "low"|"auto"
-	PartialImages                      *int                   `json:"partial_images,omitempty"`     // 0..3
-	Image                              interface{}            `json:"image,omitempty"`              // string or []string
-	Seed                               *int                   `json:"seed,omitempty"`               // -1..2147483647
-	SequentialImageGeneration          *string                `json:"sequential_image_generation,omitempty"`         // "auto"|"disabled"
-	SequentialImageGenerationOptions   map[string]interface{} `json:"sequential_image_generation_options,omitempty"`
-	GuidanceScale                      *float64               `json:"guidance_scale,omitempty"` // 1..10
-	Watermark                          *bool                  `json:"watermark,omitempty"`
-	OptimizePromptOptions              map[string]interface{} `json:"optimize_prompt_options,omitempty"`
+	AspectRatio                      *string                `json:"aspect_ratio,omitempty"`
+	Resolution                       *string                `json:"resolution,omitempty"`
+	OutputCompression                *int                   `json:"output_compression,omitempty"`          // 0..100
+	Background                       *string                `json:"background,omitempty"`                  // "transparent"|"opaque"|"auto"
+	Moderation                       *string                `json:"moderation,omitempty"`                  // "low"|"auto"
+	PartialImages                    *int                   `json:"partial_images,omitempty"`              // 0..3
+	Image                            interface{}            `json:"image,omitempty"`                       // string or []string
+	Seed                             *int                   `json:"seed,omitempty"`                        // -1..2147483647
+	SequentialImageGeneration        *string                `json:"sequential_image_generation,omitempty"` // "auto"|"disabled"
+	SequentialImageGenerationOptions map[string]interface{} `json:"sequential_image_generation_options,omitempty"`
+	GuidanceScale                    *float64               `json:"guidance_scale,omitempty"` // 1..10
+	Watermark                        *bool                  `json:"watermark,omitempty"`
+	OptimizePromptOptions            map[string]interface{} `json:"optimize_prompt_options,omitempty"`
 }
 
 type ImageItem struct {
@@ -678,6 +688,8 @@ type ImageUsage struct {
 }
 
 type ImageGenerationResponse struct {
+	ResponseMeta
+
 	Created      int64       `json:"created"`
 	Data         []ImageItem `json:"data"`
 	Background   *string     `json:"background,omitempty"`
@@ -711,6 +723,8 @@ type UploadFileParams struct {
 
 // InitUploadResponse is returned by POST /v1/files (RAG).
 type InitUploadResponse struct {
+	ResponseMeta
+
 	FileID    string `json:"file_id"`
 	SignedURL string `json:"signed_url"`
 	ExpiresAt string `json:"expires_at"`
@@ -737,6 +751,8 @@ type RagFileStatus struct {
 
 // RagFileListResponse is returned by GET /v1/files (RAG).
 type RagFileListResponse struct {
+	ResponseMeta
+
 	Files  []RagFileStatus `json:"files"`
 	Total  int             `json:"total"`
 	Limit  int             `json:"limit"`
@@ -766,6 +782,8 @@ type BulkEmbedResult struct {
 
 // BulkEmbedResponse is returned by POST /v1/files/embed.
 type BulkEmbedResponse struct {
+	ResponseMeta
+
 	Results []BulkEmbedResult `json:"results"`
 }
 
@@ -795,6 +813,8 @@ type SearchResult struct {
 
 // SearchResponse is returned by POST /v1/files/search.
 type SearchResponse struct {
+	ResponseMeta
+
 	Results []SearchResult `json:"results"`
 }
 
@@ -888,6 +908,8 @@ type AudioTranslationParams struct {
 }
 
 type TranscriptionResponse struct {
+	ResponseMeta
+
 	Text string `json:"text"`
 }
 
@@ -915,6 +937,8 @@ type Voice struct {
 }
 
 type VoicesResponse struct {
+	ResponseMeta
+
 	Voices []Voice `json:"voices"`
 	// Pointers so an omitted has_more / total_count is distinguishable from a
 	// real zero value (e.g. paginate while HasMore != nil && *HasMore).
@@ -963,6 +987,8 @@ type VideoGenerationParams struct {
 
 // CreateVideoGenerationResponse is the response from POST /v1/video/generations.
 type CreateVideoGenerationResponse struct {
+	ResponseMeta
+
 	ID string `json:"id"`
 }
 
@@ -986,6 +1012,8 @@ type VideoTaskUsage struct {
 
 // VideoTaskResponse is the shape of a single video generation task.
 type VideoTaskResponse struct {
+	ResponseMeta
+
 	ID                    string            `json:"id"`
 	Status                string            `json:"status"`
 	Model                 *string           `json:"model,omitempty"`
@@ -1021,6 +1049,8 @@ type ListVideoGenerationsParams struct {
 
 // VideoTaskListResponse is the response from GET /v1/video/generations.
 type VideoTaskListResponse struct {
+	ResponseMeta
+
 	Object  string              `json:"object"`
 	Data    []VideoTaskResponse `json:"data"`
 	HasMore bool                `json:"has_more"`
@@ -1069,6 +1099,8 @@ type ModerationResult struct {
 }
 
 type ModerationResponse struct {
+	ResponseMeta
+
 	ID      string             `json:"id"`
 	Model   string             `json:"model"`
 	Results []ModerationResult `json:"results"`
@@ -1098,6 +1130,8 @@ type WebSearchResultItem struct {
 }
 
 type WebSearchResponse struct {
+	ResponseMeta
+
 	Query   string                `json:"query"`
 	Answer  *string               `json:"answer,omitempty"`
 	Results []WebSearchResultItem `json:"results"`
@@ -1123,6 +1157,8 @@ type AutoRouterMeta struct {
 }
 
 type RouterSelectResponse struct {
+	ResponseMeta
+
 	Model           string         `json:"model"`
 	AutoRouter      AutoRouterMeta `json:"auto_router"`
 	ReasoningEffort *string        `json:"reasoning_effort,omitempty"`
@@ -1171,6 +1207,8 @@ type ResponsesListItem struct {
 }
 
 type ResponsesListResponse struct {
+	ResponseMeta
+
 	Object  *string             `json:"object,omitempty"`
 	Data    []ResponsesListItem `json:"data"`
 	HasMore bool                `json:"has_more"`
@@ -1210,4 +1248,3 @@ type ImageEditParams struct {
 	ExpandFactor    interface{} `json:"expand_factor,omitempty"` // string or float64
 	MaskFeather     *int        `json:"mask_feather,omitempty"`
 }
-

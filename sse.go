@@ -17,6 +17,10 @@ func parseSSEStream(resp *http.Response, chunkCh chan<- ChatCompletionChunk, err
 	defer close(chunkCh)
 	defer close(errCh)
 
+	// Captured up front: by the time an error frame arrives the response
+	// headers are the only place the id still exists.
+	headerRequestID := resp.Header.Get("X-Request-Id")
+
 	scanner := bufio.NewScanner(resp.Body)
 	// Raise the max token size well above bufio's 64KB default: a single SSE
 	// data line can carry a large payload (e.g. base64 image frames), which
@@ -38,7 +42,7 @@ func parseSSEStream(resp *http.Response, chunkCh chan<- ChatCompletionChunk, err
 		frame := remainder.String()
 		remainder.Reset()
 
-		chunk, done, err := tryParseSSEFrame(frame)
+		chunk, done, err := tryParseSSEFrame(frame, headerRequestID)
 		if err != nil {
 			errCh <- err
 			return
@@ -58,10 +62,28 @@ func parseSSEStream(resp *http.Response, chunkCh chan<- ChatCompletionChunk, err
 
 // tryParseSSEFrame parses a single SSE frame (may contain multiple lines).
 // Returns (chunk, false, nil) for a data chunk,
-//         (nil, true, nil)    for [DONE],
-//         (nil, false, err)   for an error frame,
-//         (nil, false, nil)   for empty/comment frames.
-func tryParseSSEFrame(frame string) (*ChatCompletionChunk, bool, error) {
+//
+//	(nil, true, nil)    for [DONE],
+//	(nil, false, err)   for an error frame,
+//	(nil, false, nil)   for empty/comment frames.
+//
+// frameRequestID resolves the request id for a mid-stream error frame.
+//
+// The frame's own request_id wins, but older gateway versions omit it entirely
+// — and by the time a mid-stream error arrives the response headers are the
+// only other place the id survives. Without the fallback the single error a
+// caller most needs to report is the one they cannot identify.
+func frameRequestID(raw map[string]json.RawMessage, fallback string) string {
+	if idRaw, ok := raw["request_id"]; ok {
+		var id string
+		if json.Unmarshal(idRaw, &id) == nil && id != "" {
+			return id
+		}
+	}
+	return fallback
+}
+
+func tryParseSSEFrame(frame, fallbackRequestID string) (*ChatCompletionChunk, bool, error) {
 	var dataLine string
 	for _, line := range strings.Split(frame, "\n") {
 		if strings.HasPrefix(line, "data: ") {
@@ -94,9 +116,10 @@ func tryParseSSEFrame(frame string) (*ChatCompletionChunk, bool, error) {
 			code = "upstream_error"
 		}
 		return nil, false, &MeshAPIError{
-			Status:  0,
-			Code:    code,
-			Message: errBody.Message,
+			Status:    0,
+			Code:      code,
+			Message:   errBody.Message,
+			RequestID: frameRequestID(raw, fallbackRequestID),
 		}
 	}
 
@@ -111,6 +134,10 @@ func parseJSONSSEStream[T any](resp *http.Response, chunkCh chan<- T, errCh chan
 	defer resp.Body.Close()
 	defer close(chunkCh)
 	defer close(errCh)
+
+	// Captured up front: by the time an error frame arrives the response
+	// headers are the only place the id still exists.
+	headerRequestID := resp.Header.Get("X-Request-Id")
 
 	scanner := bufio.NewScanner(resp.Body)
 	// Raise the max token size well above bufio's 64KB default: a single SSE
@@ -130,7 +157,7 @@ func parseJSONSSEStream[T any](resp *http.Response, chunkCh chan<- T, errCh chan
 		frame := remainder.String()
 		remainder.Reset()
 
-		chunk, done, err := tryParseJSONSSEFrame[T](frame)
+		chunk, done, err := tryParseJSONSSEFrame[T](frame, headerRequestID)
 		if err != nil {
 			errCh <- err
 			return
@@ -148,7 +175,7 @@ func parseJSONSSEStream[T any](resp *http.Response, chunkCh chan<- T, errCh chan
 	}
 }
 
-func tryParseJSONSSEFrame[T any](frame string) (*T, bool, error) {
+func tryParseJSONSSEFrame[T any](frame, fallbackRequestID string) (*T, bool, error) {
 	var dataLine string
 	for _, line := range strings.Split(frame, "\n") {
 		if strings.HasPrefix(line, "data: ") {
@@ -182,9 +209,10 @@ func tryParseJSONSSEFrame[T any](frame string) (*T, bool, error) {
 			code = "upstream_error"
 		}
 		return nil, false, &MeshAPIError{
-			Status:  0,
-			Code:    code,
-			Message: errBody.Message,
+			Status:    0,
+			Code:      code,
+			Message:   errBody.Message,
+			RequestID: frameRequestID(raw, fallbackRequestID),
 		}
 	}
 

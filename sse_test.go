@@ -13,7 +13,7 @@ import (
 
 func TestTryParseSSEFrame_ValidChunk(t *testing.T) {
 	frame := `data: {"id":"x","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{"content":"Hi"},"finish_reason":null}]}` + "\n"
-	chunk, done, err := tryParseSSEFrame(frame)
+	chunk, done, err := tryParseSSEFrame(frame, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestTryParseSSEFrame_ValidChunk(t *testing.T) {
 
 func TestTryParseSSEFrame_DoneSentinel(t *testing.T) {
 	frame := "data: [DONE]\n"
-	_, done, err := tryParseSSEFrame(frame)
+	_, done, err := tryParseSSEFrame(frame, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -46,14 +46,14 @@ func TestTryParseSSEFrame_DoneSentinel(t *testing.T) {
 }
 
 func TestTryParseSSEFrame_EmptyFrame(t *testing.T) {
-	chunk, done, err := tryParseSSEFrame("")
+	chunk, done, err := tryParseSSEFrame("", "")
 	if err != nil || done || chunk != nil {
 		t.Errorf("empty frame: chunk=%v done=%v err=%v", chunk, done, err)
 	}
 }
 
 func TestTryParseSSEFrame_MalformedJSON(t *testing.T) {
-	chunk, done, err := tryParseSSEFrame("data: {not valid}\n")
+	chunk, done, err := tryParseSSEFrame("data: {not valid}\n", "")
 	if err != nil || done || chunk != nil {
 		t.Errorf("malformed: chunk=%v done=%v err=%v", chunk, done, err)
 	}
@@ -61,7 +61,7 @@ func TestTryParseSSEFrame_MalformedJSON(t *testing.T) {
 
 func TestTryParseSSEFrame_ErrorFrame(t *testing.T) {
 	frame := `data: {"error":{"code":"upstream_error","message":"Provider failed"}}` + "\n"
-	_, _, err := tryParseSSEFrame(frame)
+	_, _, err := tryParseSSEFrame(frame, "")
 	if err == nil {
 		t.Fatal("expected error from error frame")
 	}
@@ -180,5 +180,63 @@ func TestParseSSEStream_MidStreamError(t *testing.T) {
 	}
 	if svcErr.Code != "upstream_error" {
 		t.Errorf("expected code 'upstream_error', got %q", svcErr.Code)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// request_id on mid-stream error frames
+//
+// Reported by a customer on the Node SDK: an upstream_error mid-stream arrived
+// with an empty request id, so the one failure they most needed to report was
+// the one they could not identify. Every SDK had the same gap.
+// ---------------------------------------------------------------------------
+
+func TestErrorFrameFallsBackToResponseHeader(t *testing.T) {
+	frame := `data: {"error":{"code":"upstream_error","message":"boom"}}` + "\n"
+	_, _, err := tryParseSSEFrame(frame, "req_hdr")
+	svcErr, ok := err.(*MeshAPIError)
+	if !ok {
+		t.Fatalf("expected *MeshAPIError, got %T", err)
+	}
+	if svcErr.RequestID != "req_hdr" {
+		t.Errorf("RequestID = %q, want %q", svcErr.RequestID, "req_hdr")
+	}
+}
+
+func TestErrorFramePrefersItsOwnRequestID(t *testing.T) {
+	frame := `data: {"error":{"code":"upstream_error","message":"boom"},"request_id":"req_body"}` + "\n"
+	_, _, err := tryParseSSEFrame(frame, "req_hdr")
+	svcErr := err.(*MeshAPIError)
+	if svcErr.RequestID != "req_body" {
+		t.Errorf("RequestID = %q, want the frame's own %q", svcErr.RequestID, "req_body")
+	}
+}
+
+func TestErrorFrameFallsBackOnEmptyFrameID(t *testing.T) {
+	frame := `data: {"error":{"code":"upstream_error","message":"boom"},"request_id":""}` + "\n"
+	_, _, err := tryParseSSEFrame(frame, "req_hdr")
+	svcErr := err.(*MeshAPIError)
+	if svcErr.RequestID != "req_hdr" {
+		t.Errorf("RequestID = %q, want header fallback %q", svcErr.RequestID, "req_hdr")
+	}
+}
+
+func TestErrorFrameIDEmptyWhenNeitherSourceHasOne(t *testing.T) {
+	frame := `data: {"error":{"code":"upstream_error","message":"boom"}}` + "\n"
+	_, _, err := tryParseSSEFrame(frame, "")
+	svcErr := err.(*MeshAPIError)
+	if svcErr.RequestID != "" {
+		t.Errorf("RequestID = %q, want empty", svcErr.RequestID)
+	}
+}
+
+func TestResponseMetaCarriesRequestID(t *testing.T) {
+	// Non-streaming parity: the id lands on the returned value, so concurrent
+	// calls stay distinguishable without any shared callback.
+	var resp ChatCompletionResponse
+	var setter interface{ setRequestID(string) } = &resp
+	setter.setRequestID("req_nonstream")
+	if resp.RequestID != "req_nonstream" {
+		t.Errorf("RequestID = %q, want %q", resp.RequestID, "req_nonstream")
 	}
 }
