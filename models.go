@@ -37,21 +37,21 @@ func (r *ModelsResource) List(ctx context.Context, params ListModelsParams) ([]M
 }
 
 // Free returns only free-tier models.
+//
+// Convenience wrapper over List with Free=true. The backend's /v1/models/free
+// shortcut was removed in favour of the ?free= query parameter; this method
+// stays so callers don't have to change.
 func (r *ModelsResource) Free(ctx context.Context) ([]ModelInfo, error) {
-	var models []ModelInfo
-	if err := r.http.get(ctx, "/v1/models/free", nil, &models); err != nil {
-		return nil, err
-	}
-	return models, nil
+	free := true
+	return r.List(ctx, ListModelsParams{Free: &free})
 }
 
 // Paid returns only paid-tier models.
+//
+// Convenience wrapper over List with Free=false — see Free.
 func (r *ModelsResource) Paid(ctx context.Context) ([]ModelInfo, error) {
-	var models []ModelInfo
-	if err := r.http.get(ctx, "/v1/models/paid", nil, &models); err != nil {
-		return nil, err
-	}
-	return models, nil
+	free := false
+	return r.List(ctx, ListModelsParams{Free: &free})
 }
 
 // Search returns a paginated, filtered page of the model catalog (DB-only).
