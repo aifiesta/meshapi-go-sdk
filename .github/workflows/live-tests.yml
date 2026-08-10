@@ -10,10 +10,10 @@ on:
   workflow_dispatch:
   schedule:
     # Staging canary (MESH-368). The MESHAPI_* secrets already point at staging,
-    # so these runs exercise the live staging API on a fixed cadence — independent
-    # of whether anyone opened a PR. Two cadences:
-    - cron: "29 */2 * * *"   # every 2h — cheap smoke subset (fast outage detection)
-    - cron: "0 7 * * *"      # daily 07:00 UTC — full live suite (gates nothing; report-only)
+    # so this run exercises the live staging API on a fixed cadence — independent
+    # of whether anyone opened a PR. One cadence: the full suite, once a day.
+    # GitHub cron is UTC-only, so 11:00 IST is expressed as 05:30 UTC.
+    - cron: "30 5 * * *"   # daily 11:00 IST — full live suite (gates nothing; report-only)
 
 env:
   # Secrets (set in repo → Settings → Secrets and variables → Actions → Secrets)
@@ -55,13 +55,7 @@ jobs:
         id: mode
         if: always()   # compute even if an earlier step failed, so summary/alert still show the suite
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            if [ "${{ github.event.schedule }}" = "29 */2 * * *" ]; then
-              echo "value=smoke" >> "$GITHUB_OUTPUT"
-            else
-              echo "value=full" >> "$GITHUB_OUTPUT"
-            fi
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "value=full" >> "$GITHUB_OUTPUT"
           else
             echo "value=smoke" >> "$GITHUB_OUTPUT"
