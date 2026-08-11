@@ -1,13 +1,16 @@
 package meshapi
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+	"testing/iotest"
 )
 
 // ---------------------------------------------------------------------------
@@ -299,5 +302,32 @@ func TestEveryDecodeTargetCarriesRequestID(t *testing.T) {
 			t.Errorf("%s is decoded from a response body but does not embed ResponseMeta, "+
 				"so its callers cannot read RequestID", name)
 		}
+	}
+}
+
+func TestStreamInterruptedCarriesRequestID(t *testing.T) {
+	// A connection that dies mid-stream is exactly as untraceable as a
+	// mid-stream error frame: the 200 and its headers are long gone. Both
+	// scanner-error paths had the id in hand and dropped it.
+	resp := &http.Response{
+		Header: http.Header{"X-Request-Id": []string{"req_interrupted"}},
+		Body:   io.NopCloser(iotest.ErrReader(errors.New("connection reset"))),
+	}
+	chunkCh := make(chan ChatCompletionChunk)
+	errCh := make(chan error, 1)
+	go parseSSEStream(resp, chunkCh, errCh)
+	for range chunkCh {
+	}
+
+	err := <-errCh
+	svcErr, ok := err.(*MeshAPIError)
+	if !ok {
+		t.Fatalf("expected *MeshAPIError, got %T (%v)", err, err)
+	}
+	if svcErr.Code != "stream_interrupted" {
+		t.Errorf("Code = %q, want stream_interrupted", svcErr.Code)
+	}
+	if svcErr.RequestID != "req_interrupted" {
+		t.Errorf("RequestID = %q, want %q", svcErr.RequestID, "req_interrupted")
 	}
 }

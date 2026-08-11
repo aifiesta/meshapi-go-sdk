@@ -56,7 +56,7 @@ func parseSSEStream(resp *http.Response, chunkCh chan<- ChatCompletionChunk, err
 	}
 
 	if err := scanner.Err(); err != nil {
-		errCh <- newStreamInterruptedError(err.Error())
+		errCh <- newStreamInterruptedError(err.Error(), headerRequestID)
 	}
 }
 
@@ -171,7 +171,7 @@ func parseJSONSSEStream[T any](resp *http.Response, chunkCh chan<- T, errCh chan
 	}
 
 	if err := scanner.Err(); err != nil {
-		errCh <- newStreamInterruptedError(err.Error())
+		errCh <- newStreamInterruptedError(err.Error(), headerRequestID)
 	}
 }
 
