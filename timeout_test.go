@@ -93,7 +93,7 @@ func TestTryParseSSEFrame_GatewayTimeoutFrame(t *testing.T) {
 	// This is the exact frame the backend emits when the upstream provider
 	// exceeds the server's 300 s provider timeout.
 	frame := `data: {"error":{"code":"gateway_timeout","message":"Upstream provider did not respond in time."}}` + "\n"
-	_, _, err := tryParseSSEFrame(frame)
+	_, _, err := tryParseSSEFrame(frame, "")
 	if err == nil {
 		t.Fatal("expected error from gateway_timeout frame")
 	}
