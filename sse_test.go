@@ -3,6 +3,9 @@ package meshapi
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -238,5 +241,63 @@ func TestResponseMetaCarriesRequestID(t *testing.T) {
 	setter.setRequestID("req_nonstream")
 	if resp.RequestID != "req_nonstream" {
 		t.Errorf("RequestID = %q, want %q", resp.RequestID, "req_nonstream")
+	}
+}
+
+// TestEveryDecodeTargetCarriesRequestID guards against the gap Greptile found:
+// ResponseMeta was embedded only in types named *Response, so BatchObject,
+// RagFileStatus, TemplateSummary, Voice and ModelsPage decoded fine and then
+// silently dropped the header — the API promised an id those callers could
+// never read.
+//
+// Enumerating the types by hand is what caused the miss, so this walks the
+// source for every decode destination instead.
+func TestEveryDecodeTargetCarriesRequestID(t *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// `var out X` / `var page X` / … immediately before an h.get/post/patch call
+	// is how every resource decodes. Slices are exempt: a []T has nowhere to put
+	// the id, exactly as arrays are exempt in the Node SDK.
+	decl := regexp.MustCompile(`(?m)^\s*var (?:out|page|resp|result) ([A-Za-z]\w*)$`)
+	seen := map[string]bool{}
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range decl.FindAllStringSubmatch(string(src), -1) {
+			seen[m[1]] = true
+		}
+	}
+	if len(seen) == 0 {
+		t.Fatal("found no decode destinations — the detection regex has rotted")
+	}
+
+	types, err := os.ReadFile("types.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(types)
+	for name := range seen {
+		if name == "T" { // generic parameter, not a concrete type
+			continue
+		}
+		start := strings.Index(src, "type "+name+" struct {")
+		if start == -1 {
+			continue // declared elsewhere; not a body-decoded response type
+		}
+		end := strings.Index(src[start:], "\n}")
+		if end == -1 {
+			t.Fatalf("could not find end of type %s", name)
+		}
+		if !strings.Contains(src[start:start+end], "ResponseMeta") {
+			t.Errorf("%s is decoded from a response body but does not embed ResponseMeta, "+
+				"so its callers cannot read RequestID", name)
+		}
 	}
 }

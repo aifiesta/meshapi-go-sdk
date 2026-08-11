@@ -331,6 +331,7 @@ type UpdateTemplateParams struct {
 
 // TemplateSummary is the response shape for all template operations.
 type TemplateSummary struct {
+	ResponseMeta
 	ID          string                   `json:"id"`
 	Name        string                   `json:"name"`
 	Owner       *string                  `json:"owner"`
@@ -614,6 +615,7 @@ type CreateBatchParams struct {
 }
 
 type BatchObject struct {
+	ResponseMeta
 	ID               string                   `json:"id"`
 	Object           *string                  `json:"object,omitempty"`
 	Endpoint         *string                  `json:"endpoint,omitempty"`
@@ -732,6 +734,7 @@ type InitUploadResponse struct {
 
 // RagFileStatus represents the processing state of a RAG file.
 type RagFileStatus struct {
+	ResponseMeta
 	FileID             string   `json:"file_id"`
 	UploadStatus       string   `json:"upload_status"`
 	FileName           string   `json:"file_name"`
@@ -926,6 +929,7 @@ type ListVoicesParams struct {
 }
 
 type Voice struct {
+	ResponseMeta
 	VoiceID     string `json:"voice_id"`
 	Name        string `json:"name"`
 	Category    string `json:"category"`
@@ -1184,6 +1188,7 @@ type ModelSearchParams struct {
 }
 
 type ModelsPage struct {
+	ResponseMeta
 	Items  []ModelInfo `json:"items"`
 	Total  int         `json:"total"`
 	Limit  int         `json:"limit"`

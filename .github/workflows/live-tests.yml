@@ -38,6 +38,12 @@ jobs:
     steps:
       - name: Checkout SDK source (including tests)
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          # TestSDKVersionNotBehindLatestTag compares sdkVersionValue against the
+          # newest release tag. The default checkout fetches no tags, so the test
+          # skipped and the guard was a no-op in the one place it matters.
+          fetch-tags: true
+          fetch-depth: 0
 
       - name: Set up Go 1.22
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5
