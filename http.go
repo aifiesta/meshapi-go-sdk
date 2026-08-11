@@ -20,6 +20,8 @@ const (
 	sdkVersionHeader = "X-MeshAPI-SDK"
 	sdkVersionValue  = "go/0.1.12"
 
+	apiVersionHeader = "X-Mesh-Version"
+
 	defaultTimeoutMs   = 60_000
 	defaultMaxRetries  = 3
 	backoffBaseMs      = 500
@@ -51,12 +53,18 @@ func (h *httpClient) buildURL(path string, params url.Values) string {
 }
 
 func (h *httpClient) baseHeaders() map[string]string {
-	return map[string]string{
+	headers := map[string]string{
 		"Authorization": "Bearer " + h.cfg.Token,
 		"Content-Type":  "application/json",
 		"Accept":        "application/json",
 		sdkVersionHeader: sdkVersionValue,
 	}
+	// Omitted entirely, not sent empty, when the caller opts out: the gateway treats
+	// an empty value as a typo'd pin and 400s it, rather than reading it as "no pin".
+	if v := h.cfg.apiVersion(); v != "" {
+		headers[apiVersionHeader] = v
+	}
+	return headers
 }
 
 func (h *httpClient) do(ctx context.Context, req *http.Request) (*http.Response, error) {

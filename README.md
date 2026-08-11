@@ -30,6 +30,42 @@ resp, err := client.Chat.Completions.Create(ctx, meshapi.ChatCompletionParams{
 })
 ```
 
+## API version
+
+MeshAPI versions its contract by date. This release targets **`2026-08`** and sends
+it as `X-Mesh-Version` on every request:
+
+```go
+meshapi.APIVersion // "2026-08" — the contract this release was built to parse
+
+// Pin a newer version, if you have migrated ahead of this SDK release:
+pinned := "2026-09"
+client := meshapi.New(meshapi.Config{BaseURL: baseURL, Token: token, APIVersion: &pinned})
+
+// Send no header at all and take the gateway's baseline, whatever it becomes:
+none := ""
+client = meshapi.New(meshapi.Config{BaseURL: baseURL, Token: token, APIVersion: &none})
+```
+
+A `nil` `APIVersion` (unset) and a pointer to `""` mean different things: unset uses
+this SDK's version, empty is an explicit opt-out.
+
+Note `meshapi.APIVersion` is the API contract, while `meshapi.Version` is the SDK
+build. They move independently — the contract changes only when the SDK is updated
+for a newer response shape.
+
+**Why pin.** An unpinned client is served whatever the gateway defaults to, so it
+never states which response shape it can parse. That is safe today only because the
+baseline is the *oldest* supported version and so never moves on its own. Pinning
+makes it a contract instead of a coincidence.
+
+The gateway rejects a version it does not serve with `400 invalid_api_version`
+rather than falling back, so a typo cannot leave you believing you are pinned when
+you are not. `GET /v1/api-versions` lists what a deployment serves.
+
+Not sent on the realtime WebSocket handshake — the gateway's versioning applies to
+HTTP requests only, and realtime negotiates its version separately.
+
 ## Chat completions
 
 ```go

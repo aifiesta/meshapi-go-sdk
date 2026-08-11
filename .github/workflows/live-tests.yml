@@ -44,9 +44,20 @@ jobs:
         with:
           go-version: "1.22"
 
+      # No workflow ran the root package's unit/contract tests, so a broken one
+      # merged green (found in MESH-508 while adding a contract test that no CI would
+      # have executed). They need no network and no secrets, so they gate everything
+      # after them. `go vet` catches the mistakes a compile does not.
+      - name: Unit and contract tests
+        run: |
+          go vet ./...
+          go test ./... -timeout 120s
+
       # Gating where safe (MESH-368): PRs and pushes run the cheap SMOKE subset
-      # (models list, one chat, embeddings, one stream, 401) so they gate
-      # reliably green — the full suite includes slow/flaky calls (image
+      # (models list, one chat, embeddings, one stream, 401, and the API-version
+      # pin — a stale pin 400s every single request, so it is the cheapest test
+      # with the widest blast radius) so they gate reliably green — the full
+      # suite includes slow/flaky calls (image
       # generation, realtime WebSocket) that intermittently exceed provider
       # latency and shouldn't block unrelated PRs. The FULL suite still runs,
       # just not as a PR gate: on the daily staging cron and on manual
@@ -67,7 +78,7 @@ jobs:
         # includes the added endpoint tests and exceeds the old 120s cap.
         run: |
           if [ "${{ steps.mode.outputs.value }}" = "smoke" ]; then
-            go test -v -timeout 120s -run '^(TestLive_Models_List|TestLive_Models_Free|TestLive_Models_Paid|TestLive_Chat_Create|TestLive_Embeddings_Create|TestLive_Stream_Basic|TestLive_Error_Unauthorized)$' ./...
+            go test -v -timeout 120s -run '^(TestLive_Models_List|TestLive_Models_Free|TestLive_Models_Paid|TestLive_Chat_Create|TestLive_Embeddings_Create|TestLive_Stream_Basic|TestLive_Error_Unauthorized|TestLive_APIVersion_PinnedVersionIsServed|TestLive_APIVersion_UnservedVersionIsRejectedLoudly|TestLive_APIVersion_ResponseEchoesTheVersionServed)$' ./...
           else
             go test -v -timeout 300s ./...
           fi

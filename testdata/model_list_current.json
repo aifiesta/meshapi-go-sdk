@@ -1,0 +1,15 @@
+[
+  {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini", "context_length": 128000, "is_free": false,
+   "description": "Affordable and intelligent small model for fast tasks",
+   "pricing": {"pricing_unit": "per_1m_tokens",
+               "prompt_usd_per_1m": "0.15000000", "completion_usd_per_1m": "0.60000000",
+               "input_usd_per_unit": "0.15000000", "output_usd_per_unit": "0.60000000",
+               "image_output_usd_per_image": null, "request_usd": null,
+               "cache_read_input_usd_per_1m": "0.07500000"}},
+  {"id": "bytedance/seedance-2-5", "name": "Seedance 2.5", "context_length": null, "is_free": false,
+   "description": "Video generation, priced per second",
+   "pricing": {"pricing_unit": "per_second",
+               "prompt_usd_per_1m": null, "completion_usd_per_1m": null,
+               "input_usd_per_unit": "10.70000000", "output_usd_per_unit": "6.40000000",
+               "image_output_usd_per_image": null, "request_usd": null}}
+]
