@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"regexp"
 	"strconv"
+	"sync"
 	"testing"
 )
 
@@ -179,4 +180,83 @@ func TestAPIVersion_EmptyStringSendsNothing(t *testing.T) {
 	if _, present := seen[http.CanonicalHeaderKey(apiVersionHeader)]; present {
 		t.Errorf("%s was sent despite an explicit opt-out", apiVersionHeader)
 	}
+}
+
+func TestAPIVersion_PinIsSnapshotAtConstruction(t *testing.T) {
+	// Greptile P1 on #25. `Config.APIVersion` is a caller-owned *string, and the
+	// header was resolved by dereferencing it on every request — so mutating the
+	// caller's variable after New() silently changed the client's contract pin, and
+	// concurrent mutation was a data race (run with -race to see it).
+	//
+	// A client's pin is part of its identity: it must be fixed when the client is
+	// built, exactly like BaseURL and Token.
+	var seen http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Clone()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(srv.Close)
+
+	pinned := "2026-09"
+	client := New(Config{BaseURL: srv.URL, Token: "rsk_test", APIVersion: &pinned})
+
+	// The caller reuses their variable. Nothing about the client should change.
+	pinned = "1999-01"
+
+	if _, err := client.Models.List(context.Background(), ListModelsParams{}); err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if got := seen.Get(apiVersionHeader); got != "2026-09" {
+		t.Errorf("%s = %q, want 2026-09 — the pin followed the caller's variable", apiVersionHeader, got)
+	}
+}
+
+func TestAPIVersion_OptOutIsSnapshotToo(t *testing.T) {
+	// The same aliasing in the other direction: opting out, then reusing the
+	// variable, must not silently re-pin the client.
+	var seen http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Clone()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(srv.Close)
+
+	none := ""
+	client := New(Config{BaseURL: srv.URL, Token: "rsk_test", APIVersion: &none})
+	none = "2026-09"
+
+	if _, err := client.Models.List(context.Background(), ListModelsParams{}); err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if _, present := seen[http.CanonicalHeaderKey(apiVersionHeader)]; present {
+		t.Errorf("%s was sent after the caller reused their opt-out variable", apiVersionHeader)
+	}
+}
+
+func TestAPIVersion_ConcurrentRequestsDoNotRaceOnTheConfig(t *testing.T) {
+	// Fails under `go test -race` if the header is resolved by dereferencing the
+	// caller's pointer per request while the caller writes to it.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(srv.Close)
+
+	pinned := "2026-09"
+	client := New(Config{BaseURL: srv.URL, Token: "rsk_test", APIVersion: &pinned})
+
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = client.Models.List(context.Background(), ListModelsParams{})
+		}()
+	}
+	// The caller mutating their own variable is legal Go; the SDK must not be
+	// reading it concurrently.
+	pinned = "2026-08"
+	wg.Wait()
 }
