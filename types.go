@@ -209,13 +209,27 @@ type ChatCompletionChunk struct {
 // ModelPricing holds per-token pricing for a model. All values are strings per
 // the spec — do not coerce to float.
 type ModelPricing struct {
-	// Required
+	// Retired on the wire. The gateway stopped returning these in v1.0.135 and has
+	// no reference to them left, so they are always nil. Kept declared because they
+	// are part of this SDK's published surface — removing the fields would fail to
+	// compile for callers that read them, where they now simply read nil. Use the
+	// per-1M or per-unit fields below instead.
 	PromptUSDPer1K     *string `json:"prompt_usd_per_1k,omitempty"`
 	CompletionUSDPer1K *string `json:"completion_usd_per_1k,omitempty"`
 	// Optional
+	// PricingUnit names the unit the per-unit rates are quoted in, e.g.
+	// per_1m_tokens, per_second, per_image, per_1k_chars.
 	PricingUnit                          *string `json:"pricing_unit,omitempty"`
 	PromptUSDPer1M                       *string `json:"prompt_usd_per_1m,omitempty"`
 	CompletionUSDPer1M                   *string `json:"completion_usd_per_1m,omitempty"`
+	// InputUSDPerUnit is the raw rate in this row's own PricingUnit.
+	//
+	// For token-priced rows it equals PromptUSDPer1M. For everything else —
+	// per-second video, per-image, per-1k-chars, per-hour — the per-1M fields are
+	// nil BY DESIGN and this is the only place the price exists. Read it together
+	// with PricingUnit, which is what makes the bare number a price.
+	InputUSDPerUnit  *string `json:"input_usd_per_unit,omitempty"`
+	OutputUSDPerUnit *string `json:"output_usd_per_unit,omitempty"`
 	ImageOutputUSDPerImage               *string `json:"image_output_usd_per_image,omitempty"`
 	RequestUSD                           *string `json:"request_usd,omitempty"`
 	LongContextInputUSDPer1M             *string `json:"long_context_input_usd_per_1m,omitempty"`

@@ -20,6 +20,8 @@ const (
 	sdkVersionHeader = "X-MeshAPI-SDK"
 	sdkVersionValue  = "go/0.1.12"
 
+	apiVersionHeader = "X-Mesh-Version"
+
 	defaultTimeoutMs   = 60_000
 	defaultMaxRetries  = 3
 	backoffBaseMs      = 500
@@ -32,6 +34,12 @@ var retryStatusCodes = map[int]bool{429: true, 502: true, 503: true, 504: true}
 type httpClient struct {
 	cfg    Config
 	client *http.Client
+	// Resolved once, at construction. Config.APIVersion is a *string the CALLER
+	// owns, so dereferencing it per request would let a client's contract pin
+	// change when the caller reuses that variable — and would race with any
+	// concurrent write to it. A client's pin is part of its identity, fixed like
+	// BaseURL and Token. "" means send no header.
+	apiVersion string
 }
 
 func newHTTPClient(cfg Config) *httpClient {
@@ -39,7 +47,7 @@ func newHTTPClient(cfg Config) *httpClient {
 	if c == nil {
 		c = &http.Client{Timeout: time.Duration(cfg.timeoutMs()) * time.Millisecond}
 	}
-	return &httpClient{cfg: cfg, client: c}
+	return &httpClient{cfg: cfg, client: c, apiVersion: cfg.apiVersion()}
 }
 
 func (h *httpClient) buildURL(path string, params url.Values) string {
@@ -51,12 +59,18 @@ func (h *httpClient) buildURL(path string, params url.Values) string {
 }
 
 func (h *httpClient) baseHeaders() map[string]string {
-	return map[string]string{
+	headers := map[string]string{
 		"Authorization": "Bearer " + h.cfg.Token,
 		"Content-Type":  "application/json",
 		"Accept":        "application/json",
 		sdkVersionHeader: sdkVersionValue,
 	}
+	// Omitted entirely, not sent empty, when the caller opts out: the gateway treats
+	// an empty value as a typo'd pin and 400s it, rather than reading it as "no pin".
+	if h.apiVersion != "" {
+		headers[apiVersionHeader] = h.apiVersion
+	}
+	return headers
 }
 
 func (h *httpClient) do(ctx context.Context, req *http.Request) (*http.Response, error) {

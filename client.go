@@ -19,6 +19,19 @@ import "net/http"
 // Version is the current SDK version.
 const Version = "0.1.12"
 
+// APIVersion is the dated MeshAPI contract version this SDK release was built
+// against, sent as X-Mesh-Version on every request.
+//
+// Distinct from [Version]: that identifies this SDK build, this identifies the API
+// contract it parses. APIVersion changes only when the SDK is updated for a newer
+// response shape, which is rarer than a release — bump it together with whatever
+// type changes that entails, and note it in CHANGELOG.md.
+//
+// Not sent on the realtime WebSocket handshake: the gateway's versioning applies to
+// HTTP requests only (its middleware returns early on non-HTTP scopes), so a pin
+// there would be a header nobody reads. Realtime negotiates its version separately.
+const APIVersion = "2026-08"
+
 // Config holds the client configuration.
 type Config struct {
 	// BaseURL is the MeshAPI gateway base URL (required).
@@ -32,6 +45,28 @@ type Config struct {
 	MaxRetries *int
 	// HTTPClient allows injecting a custom *http.Client (optional).
 	HTTPClient *http.Client
+	// APIVersion pins the dated MeshAPI contract version sent as X-Mesh-Version.
+	//
+	// nil (unset) sends [APIVersion], the version this SDK was built against. A
+	// pointer to a non-empty string pins that version instead — useful if you have
+	// migrated ahead of this SDK release. A pointer to the EMPTY string sends no
+	// header at all, taking the gateway's baseline whatever it may become.
+	//
+	// nil and &"" mean different things on purpose: unset takes the SDK's version,
+	// empty is an explicit opt-out.
+	//
+	// The gateway rejects a version it does not serve with 400 invalid_api_version
+	// rather than falling back, so a typo cannot leave you believing you are pinned
+	// when you are not.
+	APIVersion *string
+}
+
+// apiVersion resolves the version to send, or "" to send no header.
+func (c Config) apiVersion() string {
+	if c.APIVersion == nil {
+		return APIVersion
+	}
+	return *c.APIVersion
 }
 
 func (c Config) timeoutMs() int {
