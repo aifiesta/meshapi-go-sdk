@@ -8,7 +8,7 @@ import (
 	meshapi "meshapi-go-sdk"
 )
 
-const defaultTTSModel = "sarvam/bulbul:v2"
+const defaultTTSModel = "sarvam/bulbul:v3"
 
 func ttsModel() string {
 	if m := os.Getenv("MESHAPI_TTS_MODEL"); m != "" {
