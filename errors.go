@@ -147,11 +147,17 @@ func statusErrorCode(status int) string {
 }
 
 // newStreamInterruptedError creates an error for a mid-stream connection failure.
-func newStreamInterruptedError(cause string) *MeshAPIError {
+//
+// requestID is the X-Request-Id of the stream that dropped. A connection that
+// dies mid-stream is exactly as untraceable as a mid-stream error frame — the
+// 200 and its headers are long gone — so it carries the id for the same reason,
+// and dropping it here would have left the harder failure the anonymous one.
+func newStreamInterruptedError(cause, requestID string) *MeshAPIError {
 	return &MeshAPIError{
-		Status:  0,
-		Code:    "stream_interrupted",
-		Message: fmt.Sprintf("stream interrupted: %s", cause),
+		Status:    0,
+		Code:      "stream_interrupted",
+		Message:   fmt.Sprintf("stream interrupted: %s", cause),
+		RequestID: requestID,
 	}
 }
 

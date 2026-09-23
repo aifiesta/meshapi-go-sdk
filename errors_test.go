@@ -89,7 +89,7 @@ func TestMeshAPIError_Error(t *testing.T) {
 }
 
 func TestStreamInterruptedError(t *testing.T) {
-	err := newStreamInterruptedError("connection reset")
+	err := newStreamInterruptedError("connection reset", "")
 	if err.Code != "stream_interrupted" {
 		t.Errorf("expected code 'stream_interrupted', got %q", err.Code)
 	}

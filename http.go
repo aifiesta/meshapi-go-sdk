@@ -20,10 +20,10 @@ const (
 	sdkVersionHeader = "X-MeshAPI-SDK"
 	sdkVersionValue  = "go/0.1.12"
 
-	defaultTimeoutMs   = 60_000
-	defaultMaxRetries  = 3
-	backoffBaseMs      = 500
-	backoffMaxMs       = 30_000
+	defaultTimeoutMs  = 60_000
+	defaultMaxRetries = 3
+	backoffBaseMs     = 500
+	backoffMaxMs      = 30_000
 )
 
 var retryStatusCodes = map[int]bool{429: true, 502: true, 503: true, 504: true}
@@ -52,9 +52,9 @@ func (h *httpClient) buildURL(path string, params url.Values) string {
 
 func (h *httpClient) baseHeaders() map[string]string {
 	return map[string]string{
-		"Authorization": "Bearer " + h.cfg.Token,
-		"Content-Type":  "application/json",
-		"Accept":        "application/json",
+		"Authorization":  "Bearer " + h.cfg.Token,
+		"Content-Type":   "application/json",
+		"Accept":         "application/json",
 		sdkVersionHeader: sdkVersionValue,
 	}
 }
@@ -151,7 +151,7 @@ func (h *httpClient) get(ctx context.Context, path string, params url.Values, ds
 	if resp.StatusCode == 204 {
 		return nil
 	}
-	return json.NewDecoder(resp.Body).Decode(dst)
+	return decodeInto(resp, dst)
 }
 
 // post performs a POST request with a JSON body and decodes the response.
@@ -268,7 +268,7 @@ func (h *httpClient) postMultipart(ctx context.Context, path string, fields map[
 	if resp.StatusCode >= 400 {
 		return newErrorFromResponse(resp)
 	}
-	return json.NewDecoder(resp.Body).Decode(dst)
+	return decodeInto(resp, dst)
 }
 
 func (h *httpClient) jsonRequest(ctx context.Context, method, path string, body interface{}, dst interface{}) error {
@@ -302,7 +302,7 @@ func (h *httpClient) jsonRequest(ctx context.Context, method, path string, body 
 			Message: string(raw),
 		}
 	}
-	return json.NewDecoder(resp.Body).Decode(dst)
+	return decodeInto(resp, dst)
 }
 
 // stream opens a streaming POST and returns the raw response for SSE parsing.
@@ -331,4 +331,19 @@ func (h *httpClient) stream(ctx context.Context, path string, body interface{}) 
 		return nil, newErrorFromResponse(resp)
 	}
 	return resp, nil
+}
+
+// decodeInto decodes the response body into dst and stamps the response's
+// request id onto it when dst can carry one (i.e. embeds ResponseMeta).
+//
+// Done centrally so a new response type gets the id by embedding ResponseMeta,
+// with no change here and no chance of one endpoint quietly missing out.
+func decodeInto(resp *http.Response, dst interface{}) error {
+	if err := json.NewDecoder(resp.Body).Decode(dst); err != nil {
+		return err
+	}
+	if setter, ok := dst.(requestIDSetter); ok {
+		setter.setRequestID(resp.Header.Get("X-Request-Id"))
+	}
+	return nil
 }
