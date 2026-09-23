@@ -134,6 +134,7 @@ go test -run TestLive_RAG -v -timeout 300s
 | `video_test.go` | Video list, generate → retrieve |
 | `compare_test.go` | Non-streaming compare, streaming compare |
 | `moderations_test.go` | Moderation classify: text and multimodal input |
+| `resilience_test.go` | Retry/fallback/logging: logger events, per-call FallbackModels stripping, unreachable-gateway chain |
 
 ---
 
