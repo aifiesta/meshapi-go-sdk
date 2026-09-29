@@ -9,9 +9,13 @@ on:
   pull_request:            # run on PRs to any base (feature-branch stacks included)
   workflow_dispatch:
   schedule:
-    # Staging canary (MESH-368). The MESHAPI_* secrets already point at staging,
-    # so this run exercises the live staging API on a fixed cadence — independent
-    # of whether anyone opened a PR. One cadence: the full suite, once a day.
+    # Live canary (MESH-368). The MESHAPI_* secrets point at PRODUCTION
+    # (api.meshapi.ai), not staging, so every run of this workflow (the PR/push
+    # smoke subset included) spends real money on the MESHAPI_TOKEN key and
+    # counts against that key's spend cap, if it has one. Key spend caps are
+    # lifetime totals, so once a cap is used up every run fails with 402. This
+    # schedule runs on a fixed cadence, independent of whether anyone opened a
+    # PR. One cadence: the full suite, once a day.
     # GitHub cron is UTC-only, so 11:00 IST is expressed as 05:30 UTC.
     - cron: "30 5 * * *"   # daily 11:00 IST — full live suite (gates nothing; report-only)
 
@@ -49,7 +53,7 @@ jobs:
       # reliably green — the full suite includes slow/flaky calls (image
       # generation, realtime WebSocket) that intermittently exceed provider
       # latency and shouldn't block unrelated PRs. The FULL suite still runs,
-      # just not as a PR gate: on the daily staging cron and on manual
+      # just not as a PR gate: on the daily cron and on manual
       # workflow_dispatch (e.g. to investigate or confirm a fix).
       - name: Determine suite mode
         id: mode
