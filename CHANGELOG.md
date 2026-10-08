@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `WebSearchParams.IncludePageContent` returns each result's extracted page text in
+  the new `WebSearchResultItem.PageContent`, so one call replaces
+  search-then-fetch. `PageContentTruncated` says when that text was cut at the
+  server's per-result ceiling, so a truncated page is never served as a whole one.
+  Only the tinyfish engine returns page text and the native engine is tried first,
+  so pin `Provider` to `"tinyfish"` when you need it.
+- A nil `IncludePageContent` sends no new key, so existing calls are byte-identical
+  on the wire.
+
 ## [0.1.0] — Initial release
 
 - `NewClient(Config)` with `Chat`, `Models`, `Templates` resources

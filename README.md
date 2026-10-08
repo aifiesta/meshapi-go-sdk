@@ -395,8 +395,9 @@ if len(res.Results) > 0 && res.Results[0].Flagged {
 
 ## Web search
 
-Gated server-side by `WEB_SEARCH_ENABLED`. Native-first with Tavily fallback;
-inspect `res.Provider` to see which engine served the request.
+Gated server-side by `WEB_SEARCH_ENABLED`. The native engine is tried first and
+failover is automatic; inspect `res.Provider` to see which engine served the
+request. Pinning `Provider` turns failover off.
 
 ```go
 maxResults, includeAnswer := 5, true
@@ -410,6 +411,36 @@ for _, hit := range res.Results {
     fmt.Println(hit.Title, hit.URL)
 }
 ```
+
+### Page content
+
+`IncludePageContent` returns each result's extracted page text, so one call
+replaces search-then-fetch:
+
+```go
+engine, withPages, maxResults := "tinyfish", true, 2
+res, _ := client.Web.Search(ctx, meshapi.WebSearchParams{
+    Query:              "latest news on Mars rovers",
+    Provider:           &engine, // the only engine that returns page text
+    IncludePageContent: &withPages,
+    MaxResults:         &maxResults,
+})
+for _, hit := range res.Results {
+    if hit.PageContent != nil {
+        fmt.Println(hit.URL, len(*hit.PageContent), hit.PageContentTruncated)
+    }
+}
+```
+
+Three things worth knowing before you turn it on:
+
+- **Pin `Provider` to `"tinyfish"`.** No other engine returns page text, and
+  native is tried first, so an unpinned request usually comes back with none.
+- **It costs nothing extra but it is slow and large.** The flat per-search fee is
+  unchanged; expect seconds rather than under one, and tens of kilobytes per result.
+- **`PageContent` is `nil` per result, not per request.** A page that cannot be read
+  yields no text for that one result instead of failing the search, and
+  `PageContentTruncated` tells you when text was cut at the server's ceiling.
 
 ## Router select
 
