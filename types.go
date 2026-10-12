@@ -1081,28 +1081,51 @@ type ModerationResponse struct {
 type WebSearchParams struct {
 	Query          string   `json:"query"`
 	Model          *string  `json:"model,omitempty"`
-	Provider       *string  `json:"provider,omitempty"`     // "native" | "tavily"
+	Provider       *string  `json:"provider,omitempty"`     // "native" | "tavily" | "tinyfish"
 	MaxResults     *int     `json:"max_results,omitempty"`  // 1–20, server default 5
 	SearchDepth    *string  `json:"search_depth,omitempty"` // "basic" | "advanced"
 	IncludeDomains []string `json:"include_domains,omitempty"`
 	ExcludeDomains []string `json:"exclude_domains,omitempty"`
 	IncludeAnswer  *bool    `json:"include_answer,omitempty"`
+	// IncludePageContent also returns each result's extracted page text in
+	// WebSearchResultItem.PageContent, so one call replaces search-then-fetch.
+	//
+	// Honoured by the tinyfish engine only, and the native engine is tried
+	// first, so pin Provider to "tinyfish" or expect no page text at all. It
+	// costs nothing extra, but the search takes seconds rather than under one
+	// and returns tens of kilobytes per result.
+	//
+	// A nil pointer sends no key, so an existing call is unchanged on the wire.
+	IncludePageContent *bool `json:"include_page_content,omitempty"`
 }
 
 type WebSearchResultItem struct {
-	Title         string   `json:"title"`
-	URL           string   `json:"url"`
+	Title string `json:"title"`
+	URL   string `json:"url"`
+	// Content is the short snippet. Page text never replaces it — see PageContent.
 	Content       string   `json:"content"`
 	Score         *float64 `json:"score,omitempty"`
 	PublishedDate *string  `json:"published_date,omitempty"`
+	// PageContent is the result's extracted PAGE text, as opposed to the
+	// Content snippet above.
+	//
+	// nil is normal, not an error: the key arrives on every response from every
+	// engine, and carries text only when the request asked for page content AND
+	// the serving engine produced some. A tinyfish result whose page could not be
+	// read is also nil, per result, without failing the search — so check it per
+	// result. A pointer, so "no text available" stays distinct from empty text.
+	PageContent *string `json:"page_content,omitempty"`
+	// PageContentTruncated is true when PageContent was cut at the server's
+	// per-result ceiling. Check it before treating the text as a whole page.
+	PageContentTruncated bool `json:"page_content_truncated,omitempty"`
 }
 
 type WebSearchResponse struct {
 	Query   string                `json:"query"`
 	Answer  *string               `json:"answer,omitempty"`
 	Results []WebSearchResultItem `json:"results"`
-	// Provider is "native" or "tavily" today; typed as string so an added
-	// engine never breaks response decoding for existing SDK versions.
+	// Provider is "native", "tavily" or "tinyfish" today; typed as string so an
+	// added engine never breaks response decoding for existing SDK versions.
 	Provider  string `json:"provider"`
 	RequestID string `json:"request_id"`
 }
