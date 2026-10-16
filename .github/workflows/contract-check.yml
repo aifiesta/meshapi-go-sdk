@@ -27,7 +27,13 @@ jobs:
         run: go run ./cmd/dumpsurface > actual.json
 
       - name: Check drift
-        run: python -m meshapi_contract.gate --spec contract/openapi.public.json --actual actual.json --spec-version "$(cat .meshapi-spec-version)" --baseline contract-baseline.json
+        run: |
+          python -m meshapi_contract.gate --spec contract/openapi.public.json --actual actual.json --spec-version "$(cat .meshapi-spec-version)" --baseline contract-baseline.json 2> gate.err
+
+      - name: Reject stale baseline entries
+        run: |
+          cat gate.err
+          ! grep -q "stale baseline" gate.err
 
       - name: Acceptance tests
         run: go test -run TestContractSurface ./...
