@@ -68,7 +68,7 @@ func main() {
 	for _, v := range registry {
 		t := reflect.TypeOf(v)
 		types[t.Name()] = t
-		collect(t.Name(), t, rows, map[reflect.Type]bool{})
+		collect(t.Name(), t, rows, map[visit]bool{})
 	}
 	params, err := sourceParams(".", types)
 	if err != nil {
@@ -129,22 +129,29 @@ func owners(goName string) []string {
 	return []string{goName}
 }
 
-func collect(name string, t reflect.Type, rows map[[2]string]bool, seen map[reflect.Type]bool) {
-	if seen[t] {
+type visit struct {
+	name string
+	t    reflect.Type
+}
+
+func collect(name string, t reflect.Type, rows map[[2]string]bool, seen map[visit]bool) {
+	key := visit{name, t}
+	if seen[key] {
 		return
 	}
-	seen[t] = true
+	seen[key] = true
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		if !f.IsExported() {
+		inner, isStruct := structOf(f.Type)
+		_, tagged := f.Tag.Lookup("json")
+		// encoding/json promotes exported fields of an untagged embedded struct,
+		// even when the embedded type itself is unexported.
+		if f.Anonymous && isStruct && !tagged {
+			collect(name, inner, rows, seen)
 			continue
 		}
-		inner, isStruct := structOf(f.Type)
-		if f.Anonymous && isStruct {
-			if _, tagged := f.Tag.Lookup("json"); !tagged {
-				collect(name, inner, rows, seen)
-				continue
-			}
+		if !f.IsExported() {
+			continue
 		}
 		if n := jsonName(f); n != "" {
 			for _, o := range owners(name) {
@@ -266,7 +273,7 @@ func typeName(e ast.Expr) string {
 
 func addStructFields(t reflect.Type, names map[string]bool) {
 	rows := map[[2]string]bool{}
-	collect("", t, rows, map[reflect.Type]bool{})
+	collect("", t, rows, map[visit]bool{})
 	for r := range rows {
 		names[r[1]] = true
 	}

@@ -2,7 +2,7 @@ package main
 
 import "github.com/aifiesta/meshapi-go-sdk"
 
-// Regenerate when exported structs change; TestRegistryCoversPackage reports gaps.
+// Regenerate when exported structs change; TestContractSurface_RegistryCoversPackage reports gaps.
 var registry = []any{
 	meshapi.AudioOutputOptions{},
 	meshapi.AudioResource{},
