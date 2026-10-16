@@ -135,12 +135,13 @@ emb, _ := client.Embeddings.Create(ctx, meshapi.EmbeddingsParams{
 
 ```go
 // Text-to-speech — returns []byte of raw audio
-ttsModel := "sarvam/bulbul:v2"
-voiceName := "meera"
+ttsModel := "sarvam/bulbul:v3"
+// Sarvam models take their voice in Speaker; Voice is for other providers (e.g. ElevenLabs).
+speaker := "ritu"
 audioBytes, err := client.Audio.Synthesize(ctx, meshapi.SpeechParams{
-    Input: "Hello from MeshAPI.",
-    Model: &ttsModel,
-    Voice: &voiceName,
+    Input:   "Hello from MeshAPI.",
+    Model:   &ttsModel,
+    Speaker: &speaker,
 })
 os.WriteFile("output.wav", audioBytes, 0644)
 
