@@ -4,6 +4,9 @@
 
 ### Added
 
+- Contract drift check: `cmd/dumpsurface` dumps the SDK's typed surface and a CI
+  workflow (`contract-check`) compares it with the pinned public spec snapshot in
+  `contract/`, failing on new drift or stale baseline entries.
 - `WebSearchParams.IncludePageContent` returns each result's extracted page text in
   the new `WebSearchResultItem.PageContent`, so one call replaces
   search-then-fetch. `PageContentTruncated` says when that text was cut at the
