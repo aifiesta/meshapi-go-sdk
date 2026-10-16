@@ -1,0 +1,33 @@
+name: contract-check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install gate
+        run: pip install "meshapi-contract @ git+https://github.com/aifiesta/meshapi-contract.git@dd520251424f9e204c41ea20a1aa3189b96958d5"
+
+      - name: Dump SDK surface
+        run: go run ./cmd/dumpsurface > actual.json
+
+      - name: Check drift
+        run: python -m meshapi_contract.gate --spec contract/openapi.public.json --actual actual.json --spec-version "$(cat .meshapi-spec-version)" --baseline contract-baseline.json
+
+      - name: Acceptance tests
+        run: go test -run TestContractSurface ./...
