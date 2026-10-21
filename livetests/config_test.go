@@ -148,9 +148,9 @@ func liveRealtimeModel() string {
 	return liveEnv("MESHAPI_REALTIME_MODEL", "openai/gpt-realtime-mini")
 }
 
-
 func strPtr(s string) *string { return &s }
 func intPtr(i int) *int       { return &i }
+func boolPtr(b bool) *bool    { return &b }
 
 func liveEnv(key, fallback string) string {
 	value := os.Getenv(key)

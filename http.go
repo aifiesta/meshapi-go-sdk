@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"math/rand"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -20,18 +23,26 @@ const (
 	sdkVersionHeader = "X-MeshAPI-SDK"
 	sdkVersionValue  = "go/0.1.12"
 
-	defaultTimeoutMs   = 60_000
-	defaultMaxRetries  = 3
-	backoffBaseMs      = 500
-	backoffMaxMs       = 30_000
+	defaultTimeoutMs     = 60_000
+	defaultMaxRetries    = 3
+	defaultBackoffBaseMs = 500
+	defaultBackoffMaxMs  = 30_000
 )
 
-var retryStatusCodes = map[int]bool{429: true, 502: true, 503: true, 504: true}
+// Gateway routing-outcome headers (FT-244) — present when the API key's
+// routing_policy is active. See resilience.go (GatewayRoutingEvent).
+const (
+	routingAttemptsHeader = "X-Mesh-Routing-Attempts"
+	routingFallbackHeader = "X-Mesh-Routing-Fallback"
+	servedProviderHeader  = "X-Mesh-Served-Provider"
+	requestIDHeader       = "X-Request-Id"
+)
 
 // httpClient wraps net/http.Client with retry, auth, and JSON helpers.
 type httpClient struct {
 	cfg    Config
 	client *http.Client
+	retry  resolvedRetryPolicy
 }
 
 func newHTTPClient(cfg Config) *httpClient {
@@ -39,7 +50,28 @@ func newHTTPClient(cfg Config) *httpClient {
 	if c == nil {
 		c = &http.Client{Timeout: time.Duration(cfg.timeoutMs()) * time.Millisecond}
 	}
-	return &httpClient{cfg: cfg, client: c}
+	return &httpClient{
+		cfg:    cfg,
+		client: c,
+		retry:  resolveRetryPolicy(cfg.Retry, cfg.MaxRetries),
+	}
+}
+
+// emit publishes a resilience event to the configured Config.Logger and, with
+// Config.Debug, as a readable stderr line. Gateway-routing lines are only
+// printed when a server-side retry/fallback actually happened; the logger
+// receives every event. Also used by CompletionsResource for fallback hops.
+func (h *httpClient) emit(event ResilienceEvent) {
+	if h.cfg.Logger != nil {
+		h.cfg.Logger(event)
+	}
+	if !h.cfg.Debug {
+		return
+	}
+	if gw, ok := event.(GatewayRoutingEvent); ok && gw.Attempts <= 1 && !gw.Fallback {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "[meshapi] %s\n", FormatResilienceEvent(event))
 }
 
 func (h *httpClient) buildURL(path string, params url.Values) string {
@@ -52,13 +84,19 @@ func (h *httpClient) buildURL(path string, params url.Values) string {
 
 func (h *httpClient) baseHeaders() map[string]string {
 	return map[string]string{
-		"Authorization": "Bearer " + h.cfg.Token,
-		"Content-Type":  "application/json",
-		"Accept":        "application/json",
+		"Authorization":  "Bearer " + h.cfg.Token,
+		"Content-Type":   "application/json",
+		"Accept":         "application/json",
 		sdkVersionHeader: sdkVersionValue,
 	}
 }
 
+// do is the single transport retry loop shared by every non-streaming request
+// (JSON, raw-bytes, and multipart). Re-sends on the policy's status set (and,
+// opt-in, on pre-response network errors), with exponential backoff, jitter,
+// and Retry-After support. Emits a RetryEvent per re-send and a
+// GatewayRoutingEvent when the final response carries X-Mesh-Routing-*
+// headers. Returns the final response — callers handle non-2xx statuses.
 func (h *httpClient) do(ctx context.Context, req *http.Request) (*http.Response, error) {
 	for k, v := range h.baseHeaders() {
 		if req.Header.Get(k) == "" {
@@ -66,61 +104,130 @@ func (h *httpClient) do(ctx context.Context, req *http.Request) (*http.Response,
 		}
 	}
 
-	maxRetries := h.cfg.maxRetries()
+	// Buffer the body once so it can be re-sent on retry.
+	var bodyBytes []byte
+	if req.Body != nil && req.Body != http.NoBody {
+		bodyBytes, _ = io.ReadAll(req.Body)
+	}
 
-	var lastResp *http.Response
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		// Clone body for retry
-		var bodyBytes []byte
-		if req.Body != nil && req.Body != http.NoBody {
-			b, _ := io.ReadAll(req.Body)
-			bodyBytes = b
-			req.Body = io.NopCloser(bytes.NewReader(b))
+	pol := h.retry
+	attempt := 0
+	for {
+		if bodyBytes != nil {
+			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 		}
 
 		resp, err := h.client.Do(req.WithContext(ctx))
 		if err != nil {
-			return nil, err
-		}
-
-		if retryStatusCodes[resp.StatusCode] && attempt < maxRetries {
-			delay := computeDelay(attempt, retryAfterFromResponse(resp))
-			resp.Body.Close()
-			// Restore body for next attempt
-			if bodyBytes != nil {
-				req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+			// Cancellations and timeouts always propagate. Other pre-response
+			// failures (DNS, connection refused/reset) retry only when opted
+			// in — they are ambiguous for non-idempotent POSTs.
+			if !pol.retryOnNetworkError || attempt >= pol.maxRetries || isCancelOrTimeout(err) {
+				return nil, err
 			}
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(delay):
+			delayMs := h.computeDelayMs(attempt, nil)
+			h.emit(RetryEvent{
+				Method:     req.Method,
+				Path:       req.URL.Path,
+				Attempt:    attempt + 1,
+				MaxRetries: pol.maxRetries,
+				DelayMs:    delayMs,
+				Reason:     RetryReasonNetworkError,
+			})
+			if err := sleepCtx(ctx, delayMs); err != nil {
+				return nil, err
 			}
+			attempt++
 			continue
 		}
 
-		lastResp = resp
-		break
-	}
+		if pol.retryOnStatus[resp.StatusCode] && attempt < pol.maxRetries {
+			delayMs := h.computeDelayMs(attempt, retryAfterFromResponse(resp, pol.respectRetryAfter))
+			h.emit(RetryEvent{
+				Method:     req.Method,
+				Path:       req.URL.Path,
+				Attempt:    attempt + 1,
+				MaxRetries: pol.maxRetries,
+				Status:     resp.StatusCode,
+				RequestID:  resp.Header.Get(requestIDHeader),
+				DelayMs:    delayMs,
+				Reason:     RetryReasonStatus,
+			})
+			resp.Body.Close()
+			if err := sleepCtx(ctx, delayMs); err != nil {
+				return nil, err
+			}
+			attempt++
+			continue
+		}
 
-	return lastResp, nil
+		h.emitGatewayRouting(req.URL.Path, resp)
+		return resp, nil
+	}
 }
 
-func computeDelay(attempt int, retryAfterSec *int) time.Duration {
+// emitGatewayRouting surfaces the gateway's own routing outcome (server-side
+// retry / provider fallback, FT-244) when the response reports it.
+// Header-absence means the key has no active routing policy — nothing is
+// emitted.
+func (h *httpClient) emitGatewayRouting(path string, resp *http.Response) {
+	attempts := resp.Header.Get(routingAttemptsHeader)
+	if attempts == "" {
+		return
+	}
+	n, err := strconv.Atoi(attempts)
+	if err != nil || n == 0 {
+		n = 1
+	}
+	h.emit(GatewayRoutingEvent{
+		Path:           path,
+		Attempts:       n,
+		Fallback:       resp.Header.Get(routingFallbackHeader) == "true",
+		ServedProvider: resp.Header.Get(servedProviderHeader),
+		RequestID:      resp.Header.Get(requestIDHeader),
+	})
+}
+
+// isCancelOrTimeout reports whether a client.Do error is a context
+// cancellation, a deadline expiry, or any network timeout — failure modes
+// that are never retried (the caller gave up, or the request may already be
+// executing server-side).
+func isCancelOrTimeout(err error) bool {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
+}
+
+// sleepCtx sleeps for delayMs milliseconds or until ctx is done.
+func sleepCtx(ctx context.Context, delayMs float64) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(time.Duration(delayMs * float64(time.Millisecond))):
+		return nil
+	}
+}
+
+func (h *httpClient) computeDelayMs(attempt int, retryAfterSec *int) float64 {
 	var baseMs float64
 	if retryAfterSec != nil {
 		baseMs = float64(*retryAfterSec * 1000)
 	} else {
-		baseMs = backoffBaseMs * math.Pow(2, float64(attempt))
+		baseMs = float64(h.retry.backoffBaseMs) * math.Pow(2, float64(attempt))
 	}
-	if baseMs > backoffMaxMs {
-		baseMs = backoffMaxMs
+	if maxMs := float64(h.retry.backoffMaxMs); baseMs > maxMs {
+		baseMs = maxMs
 	}
 	// ±20% jitter
-	jitter := baseMs * (0.8 + rand.Float64()*0.4)
-	return time.Duration(jitter) * time.Millisecond
+	return baseMs * (0.8 + rand.Float64()*0.4)
 }
 
-func retryAfterFromResponse(resp *http.Response) *int {
+func retryAfterFromResponse(resp *http.Response, respectRetryAfter bool) *int {
+	if !respectRetryAfter {
+		return nil
+	}
 	val := resp.Header.Get("Retry-After")
 	if val == "" {
 		return nil

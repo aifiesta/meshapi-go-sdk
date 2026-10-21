@@ -29,7 +29,31 @@ type Config struct {
 	// For streaming requests this applies to TTFB only.
 	TimeoutMs *int
 	// MaxRetries is the number of retry attempts on retryable errors (default 3).
+	//
+	// Deprecated: use Retry.MaxRetries — this alias maps onto it, and
+	// Retry.MaxRetries wins when both are set.
 	MaxRetries *int
+	// Retry is the transport retry policy: which statuses to retry, backoff
+	// shape, whether to honour Retry-After, and (opt-in) network-error retry.
+	// Streaming requests are never retried.
+	Retry *RetryPolicy
+	// Fallback is the client-side model-fallback chain for
+	// Chat.Completions.Create (non-streaming): when the primary model's
+	// request exhausts its retries on a transient error, the SDK re-issues it
+	// against each model in the chain until one succeeds. Each hop fires a
+	// FallbackEvent.
+	Fallback *FallbackConfig
+	// Logger is a structured sink for resilience events — every transport
+	// retry, every fallback hop, and every gateway-side routing outcome
+	// (parsed from the X-Mesh-Routing-* response headers). Use this to pipe
+	// into your own logging framework; use Debug for ready-made readable
+	// lines instead.
+	Logger func(ResilienceEvent)
+	// Debug prints readable resilience lines to stderr ("[meshapi] retrying
+	// POST …"). Gateway-routing lines are printed only when interesting (a
+	// retry or a provider fallback actually happened). Independent of Logger
+	// (default false).
+	Debug bool
 	// HTTPClient allows injecting a custom *http.Client (optional).
 	HTTPClient *http.Client
 }
@@ -39,13 +63,6 @@ func (c Config) timeoutMs() int {
 		return *c.TimeoutMs
 	}
 	return defaultTimeoutMs
-}
-
-func (c Config) maxRetries() int {
-	if c.MaxRetries != nil {
-		return *c.MaxRetries
-	}
-	return defaultMaxRetries
 }
 
 // Client is the MeshAPI SDK client.
