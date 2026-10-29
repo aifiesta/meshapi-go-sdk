@@ -2,112 +2,79 @@ package meshapi
 
 import (
 	"context"
-	"net/url"
-	"strconv"
-	"strings"
+	"encoding/json"
 )
 
-// ModelsResource provides access to the /v1/models endpoints.
+// ModelsResource provides access to the GET /v1/models model catalog.
 type ModelsResource struct {
 	http *httpClient
 }
 
-// List returns all available models. Pass optional params to filter by free,
-// type, or provider.
-func (r *ModelsResource) List(ctx context.Context, params ListModelsParams) ([]ModelInfo, error) {
-	qs := url.Values{}
-	if params.Free != nil {
-		if *params.Free {
-			qs.Set("free", "true")
-		} else {
-			qs.Set("free", "false")
-		}
-	}
-	if params.Type != nil {
-		qs.Set("type", *params.Type)
-	}
-	if params.Provider != nil {
-		qs.Set("provider", *params.Provider)
-	}
-	var models []ModelInfo
-	if err := r.http.get(ctx, "/v1/models", qs, &models); err != nil {
+// List returns the models currently available in the catalog.
+// Use only model ids returned here in requests.
+func (r *ModelsResource) List(ctx context.Context) (*ModelList, error) {
+	var out ModelList
+	if err := r.http.get(ctx, "/v1/models", &out); err != nil {
 		return nil, err
 	}
-	return models, nil
+	return &out, nil
 }
 
-// Free returns only free-tier models.
+// ---------------------------------------------------------------------------
+// Cost breakdown (spec v1.0.371)
+// ---------------------------------------------------------------------------
+
+// CostLineOut is one line item of a request's cost breakdown.
 //
-// Convenience wrapper over List with Free=true. The backend's /v1/models/free
-// shortcut was removed in favour of the ?free= query parameter; this method
-// stays so callers don't have to change.
-func (r *ModelsResource) Free(ctx context.Context) ([]ModelInfo, error) {
-	free := true
-	return r.List(ctx, ListModelsParams{Free: &free})
+// Breaking in v1.0.371: RatePer1MUSD and Tokens are now optional and nullable,
+// because non-token charges (for example images or video seconds) have no
+// per-1M-token rate or token count. Read Quantity, Unit and RateUSD for those
+// lines instead.
+type CostLineOut struct {
+	// RatePer1MUSD is the per-1M-token rate as a decimal string; nil for
+	// lines that are not token-priced.
+	RatePer1MUSD *string `json:"rate_per_1m_usd,omitempty"`
+	// Tokens is the token count for the line; nil for lines that are not
+	// token-priced.
+	Tokens *int `json:"tokens,omitempty"`
+	// Quantity is the number of units billed on this line.
+	Quantity *json.Number `json:"quantity,omitempty"`
+	// Unit names what Quantity counts.
+	Unit *string `json:"unit,omitempty"`
+	// RateUSD is the rate applied per Unit, as a decimal string.
+	RateUSD *string `json:"rate_usd,omitempty"`
+	// Charged reports whether this line was billed to the caller.
+	Charged *bool `json:"charged,omitempty"`
+	// Modifiers carries the rate-card adjustments that applied to this line.
+	Modifiers json.RawMessage `json:"modifiers,omitempty"`
 }
 
-// Paid returns only paid-tier models.
-//
-// Convenience wrapper over List with Free=false — see Free.
-func (r *ModelsResource) Paid(ctx context.Context) ([]ModelInfo, error) {
-	free := false
-	return r.List(ctx, ListModelsParams{Free: &free})
+// CostBreakdownOut is the itemised cost of a request.
+type CostBreakdownOut struct {
+	// Lines are the individual cost line items.
+	Lines []CostLineOut `json:"lines,omitempty"`
+	// RoundingUSD is the rounding adjustment applied to the total, as a
+	// decimal string.
+	RoundingUSD *string `json:"rounding_usd,omitempty"`
 }
 
-// Search returns a paginated, filtered page of the model catalog (DB-only).
-func (r *ModelsResource) Search(ctx context.Context, params ModelSearchParams) (*ModelsPage, error) {
-	qs := url.Values{}
-	if params.Q != nil {
-		qs.Set("q", *params.Q)
-	}
-	if params.Free != nil {
-		qs.Set("free", strconv.FormatBool(*params.Free))
-	}
-	if params.Discounted != nil {
-		qs.Set("discounted", strconv.FormatBool(*params.Discounted))
-	}
-	for _, m := range params.InputModality {
-		qs.Add("input_modality", m)
-	}
-	for _, m := range params.OutputModality {
-		qs.Add("output_modality", m)
-	}
-	for _, b := range params.Brand {
-		qs.Add("brand", b)
-	}
-	if params.Sort != nil {
-		qs.Set("sort", *params.Sort)
-	}
-	if params.Order != nil {
-		qs.Set("order", *params.Order)
-	}
-	if params.Limit != nil {
-		qs.Set("limit", strconv.Itoa(*params.Limit))
-	}
-	if params.Offset != nil {
-		qs.Set("offset", strconv.Itoa(*params.Offset))
-	}
-	var page ModelsPage
-	if err := r.http.get(ctx, "/v1/models/search", qs, &page); err != nil {
-		return nil, err
-	}
-	return &page, nil
-}
+// ---------------------------------------------------------------------------
+// Usage filter (spec v1.0.371)
+// ---------------------------------------------------------------------------
 
-// Get returns a single model's detail by id (e.g. "openai/gpt-4o").
-// The modelID may contain slashes (which are preserved); other special
-// characters are percent-encoded per segment.
-func (r *ModelsResource) Get(ctx context.Context, modelID string) (*ModelInfo, error) {
-	var m ModelInfo
-	// Encode each path segment individually so that "/" in the model ID remains
-	// a literal slash (required for "brand/model" style IDs) while other
-	// reserved characters like spaces, %, ?, # are properly escaped.
-	segments := strings.Split(modelID, "/")
-	for i, s := range segments {
-		segments[i] = url.PathEscape(s)
-	}
-	if err := r.http.get(ctx, "/v1/models/"+strings.Join(segments, "/"), nil, &m); err != nil {
-		return nil, err
-	}
-	return &m, nil
+// UsageFilter narrows usage event listings, counts, summaries and exports.
+type UsageFilter struct {
+	// Provider filters by provider slug.
+	Provider []string `json:"provider,omitempty"`
+	// FaultOwner filters by who a failure is attributed to.
+	FaultOwner []string `json:"fault_owner,omitempty"`
+	// IsBYOK filters to requests served on your own provider key (true) or not (false).
+	IsBYOK *bool `json:"is_byok,omitempty"`
+	// Stream filters to streaming (true) or non-streaming (false) requests.
+	Stream *bool `json:"stream,omitempty"`
+	// TrafficType filters by traffic class.
+	TrafficType []string `json:"traffic_type,omitempty"`
+	// IsRetryAttempt selects which attempts to include. Omit it to get only the
+	// served attempt; pass []bool{true, false} to include retry attempts too.
+	IsRetryAttempt []bool `json:"is_retry_attempt,omitempty"`
 }
