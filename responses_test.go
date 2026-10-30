@@ -2,51 +2,69 @@ package meshapi
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 )
 
+func strPtr(s string) *string { return &s }
+
 func TestResponsesInputTokensParams_Marshal(t *testing.T) {
-	instructions := "Answer in one word."
-	prev := "resp_123"
-	cases := []struct {
-		name     string
-		params   ResponsesInputTokensParams
-		contains []string
-		absent   []string
+	tests := []struct {
+		name   string
+		params ResponsesInputTokensParams
+		want   map[string]any
+		absent []string
 	}{
 		{
-			name:     "string input",
-			params:   ResponsesInputTokensParams{Model: "openai/gpt-4o-mini", Input: "Hello"},
-			contains: []string{`"model":"openai/gpt-4o-mini"`, `"input":"Hello"`},
-			absent:   []string{`"stream"`, `"instructions"`, `"previous_response_id"`, `"provider"`, `"tools"`},
+			name:   "string input only",
+			params: ResponsesInputTokensParams{Model: "openai/gpt-4o-mini", Input: "hello"},
+			want:   map[string]any{"model": "openai/gpt-4o-mini", "input": "hello"},
+			absent: []string{"instructions", "tools", "tool_choice", "previous_response_id"},
 		},
 		{
-			name: "optional fields are sent when set",
+			name: "instructions and previous response",
 			params: ResponsesInputTokensParams{
 				Model:              "openai/gpt-4o-mini",
-				Input:              []any{map[string]any{"role": "user", "content": "Hi"}},
-				Instructions:       &instructions,
-				PreviousResponseID: &prev,
+				Input:              "next",
+				Instructions:       strPtr("be brief"),
+				PreviousResponseID: strPtr("resp_123"),
 			},
-			contains: []string{`"input":[`, `"instructions":"Answer in one word."`, `"previous_response_id":"resp_123"`},
+			want: map[string]any{
+				"model":                "openai/gpt-4o-mini",
+				"input":                "next",
+				"instructions":         "be brief",
+				"previous_response_id": "resp_123",
+			},
+			absent: []string{"tools", "tool_choice"},
+		},
+		{
+			name: "tool choice string",
+			params: ResponsesInputTokensParams{
+				Model:      "openai/gpt-4o-mini",
+				Input:      "hi",
+				ToolChoice: "auto",
+			},
+			want:   map[string]any{"tool_choice": "auto"},
+			absent: []string{"tools"},
 		},
 	}
-	for _, tc := range cases {
+	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			b, err := json.Marshal(tc.params)
 			if err != nil {
 				t.Fatalf("marshal: %v", err)
 			}
-			s := string(b)
-			for _, want := range tc.contains {
-				if !strings.Contains(s, want) {
-					t.Errorf("body %s missing %s", s, want)
+			var got map[string]any
+			if err := json.Unmarshal(b, &got); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			for k, v := range tc.want {
+				if got[k] != v {
+					t.Errorf("field %q = %v, want %v", k, got[k], v)
 				}
 			}
-			for _, bad := range tc.absent {
-				if strings.Contains(s, bad) {
-					t.Errorf("body %s should not contain %s", s, bad)
+			for _, k := range tc.absent {
+				if _, ok := got[k]; ok {
+					t.Errorf("field %q should be omitted", k)
 				}
 			}
 		})
@@ -54,16 +72,17 @@ func TestResponsesInputTokensParams_Marshal(t *testing.T) {
 }
 
 func TestResponsesInputTokensResponse_Unmarshal(t *testing.T) {
-	cases := []struct {
+	tests := []struct {
 		name       string
 		body       string
 		wantObject string
 		wantTokens int
 	}{
-		{name: "with object", body: `{"object":"response.input_tokens","input_tokens":17}`, wantObject: "response.input_tokens", wantTokens: 17},
-		{name: "tokens only", body: `{"input_tokens":3}`, wantObject: "", wantTokens: 3},
+		{"typical", `{"object":"response.input_tokens","input_tokens":42}`, "response.input_tokens", 42},
+		{"zero", `{"object":"response.input_tokens","input_tokens":0}`, "response.input_tokens", 0},
+		{"extra fields ignored", `{"object":"response.input_tokens","input_tokens":7,"x":1}`, "response.input_tokens", 7},
 	}
-	for _, tc := range cases {
+	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var out ResponsesInputTokensResponse
 			if err := json.Unmarshal([]byte(tc.body), &out); err != nil {
