@@ -16,6 +16,39 @@ type ResponsesListParams struct {
 	Limit *int
 }
 
+// ---------------------------------------------------------------------------
+// Input token counting (POST /v1/responses/input_tokens)
+// ---------------------------------------------------------------------------
+
+// ResponsesInputTokensParams is the request body for Responses.InputTokens.
+//
+// It takes the same input shape as a Responses create request. The gateway
+// counts the prompt tokens without running inference, so the call is not
+// billed and records no usage.
+type ResponsesInputTokensParams struct {
+	// Model is the model id to count against, e.g. "openai/gpt-4o-mini".
+	Model string `json:"model"`
+	// Input is a string or a list of Responses input items.
+	Input any `json:"input,omitempty"`
+	// Instructions is an optional system-level instruction string.
+	Instructions *string `json:"instructions,omitempty"`
+	// Tools lists tool definitions that count toward the prompt.
+	Tools []any `json:"tools,omitempty"`
+	// ToolChoice is an optional tool choice (string or object).
+	ToolChoice any `json:"tool_choice,omitempty"`
+	// PreviousResponseID continues from a stored response you own.
+	PreviousResponseID *string `json:"previous_response_id,omitempty"`
+}
+
+// ResponsesInputTokensResponse is the result of Responses.InputTokens.
+type ResponsesInputTokensResponse struct {
+	// Object is "response.input_tokens".
+	Object string `json:"object"`
+	// InputTokens is the number of input tokens the request would consume.
+	InputTokens int `json:"input_tokens"`
+}
+
+// Create sends a non-streaming Responses request.
 func (r *ResponsesResource) Create(ctx context.Context, params ResponsesParams) (*ResponsesResponse, error) {
 	f := false
 	params.Stream = &f
@@ -26,6 +59,7 @@ func (r *ResponsesResource) Create(ctx context.Context, params ResponsesParams) 
 	return &out, nil
 }
 
+// Stream sends a streaming Responses request and returns event and error channels.
 func (r *ResponsesResource) Stream(ctx context.Context, params ResponsesParams) (<-chan ResponsesStreamEvent, <-chan error) {
 	t := true
 	params.Stream = &t
@@ -42,6 +76,18 @@ func (r *ResponsesResource) Stream(ctx context.Context, params ResponsesParams) 
 		parseJSONSSEStream(resp, chunkCh, errCh)
 	}()
 	return chunkCh, errCh
+}
+
+// InputTokens counts the input tokens a Responses request would use, without
+// running inference. The call is not billed and writes no usage record.
+//
+// It calls POST /v1/responses/input_tokens.
+func (r *ResponsesResource) InputTokens(ctx context.Context, params ResponsesInputTokensParams) (*ResponsesInputTokensResponse, error) {
+	var out ResponsesInputTokensResponse
+	if err := r.http.post(ctx, "/v1/responses/input_tokens", params, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // List returns the caller's background response jobs (OpenAI list envelope).
