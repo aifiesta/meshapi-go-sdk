@@ -2,112 +2,28 @@ package meshapi
 
 import (
 	"context"
-	"net/url"
-	"strconv"
-	"strings"
 )
 
-// ModelsResource provides access to the /v1/models endpoints.
+// ModelsResource provides access to the model catalog at GET /v1/models.
+//
+// Each model in the catalog carries a ModelPricing block. As of spec
+// v1.0.378 the pricing block may also publish
+// long_context_cache_write_1h_input_usd_per_1m: the per-million-token
+// price of a 1-hour cache write on a prompt past the model's long-context
+// threshold. The field is optional and is null or absent for models that
+// do not price a long-context 1-hour cache write.
 type ModelsResource struct {
 	http *httpClient
 }
 
-// List returns all available models. Pass optional params to filter by free,
-// type, or provider.
-func (r *ModelsResource) List(ctx context.Context, params ListModelsParams) ([]ModelInfo, error) {
-	qs := url.Values{}
-	if params.Free != nil {
-		if *params.Free {
-			qs.Set("free", "true")
-		} else {
-			qs.Set("free", "false")
-		}
-	}
-	if params.Type != nil {
-		qs.Set("type", *params.Type)
-	}
-	if params.Provider != nil {
-		qs.Set("provider", *params.Provider)
-	}
-	var models []ModelInfo
-	if err := r.http.get(ctx, "/v1/models", qs, &models); err != nil {
-		return nil, err
-	}
-	return models, nil
-}
-
-// Free returns only free-tier models.
+// List returns every model currently available in the catalog.
 //
-// Convenience wrapper over List with Free=true. The backend's /v1/models/free
-// shortcut was removed in favour of the ?free= query parameter; this method
-// stays so callers don't have to change.
-func (r *ModelsResource) Free(ctx context.Context) ([]ModelInfo, error) {
-	free := true
-	return r.List(ctx, ListModelsParams{Free: &free})
-}
-
-// Paid returns only paid-tier models.
-//
-// Convenience wrapper over List with Free=false — see Free.
-func (r *ModelsResource) Paid(ctx context.Context) ([]ModelInfo, error) {
-	free := false
-	return r.List(ctx, ListModelsParams{Free: &free})
-}
-
-// Search returns a paginated, filtered page of the model catalog (DB-only).
-func (r *ModelsResource) Search(ctx context.Context, params ModelSearchParams) (*ModelsPage, error) {
-	qs := url.Values{}
-	if params.Q != nil {
-		qs.Set("q", *params.Q)
-	}
-	if params.Free != nil {
-		qs.Set("free", strconv.FormatBool(*params.Free))
-	}
-	if params.Discounted != nil {
-		qs.Set("discounted", strconv.FormatBool(*params.Discounted))
-	}
-	for _, m := range params.InputModality {
-		qs.Add("input_modality", m)
-	}
-	for _, m := range params.OutputModality {
-		qs.Add("output_modality", m)
-	}
-	for _, b := range params.Brand {
-		qs.Add("brand", b)
-	}
-	if params.Sort != nil {
-		qs.Set("sort", *params.Sort)
-	}
-	if params.Order != nil {
-		qs.Set("order", *params.Order)
-	}
-	if params.Limit != nil {
-		qs.Set("limit", strconv.Itoa(*params.Limit))
-	}
-	if params.Offset != nil {
-		qs.Set("offset", strconv.Itoa(*params.Offset))
-	}
-	var page ModelsPage
-	if err := r.http.get(ctx, "/v1/models/search", qs, &page); err != nil {
+// Use only the model ids returned here in requests; models retired from
+// the catalog are not listed.
+func (r *ModelsResource) List(ctx context.Context) (*ModelList, error) {
+	var out ModelList
+	if err := r.http.get(ctx, "/v1/models", &out); err != nil {
 		return nil, err
 	}
-	return &page, nil
-}
-
-// Get returns a single model's detail by id (e.g. "openai/gpt-4o").
-// The modelID may contain slashes (which are preserved); other special
-// characters are percent-encoded per segment.
-func (r *ModelsResource) Get(ctx context.Context, modelID string) (*ModelInfo, error) {
-	var m ModelInfo
-	// Encode each path segment individually so that "/" in the model ID remains
-	// a literal slash (required for "brand/model" style IDs) while other
-	// reserved characters like spaces, %, ?, # are properly escaped.
-	segments := strings.Split(modelID, "/")
-	for i, s := range segments {
-		segments[i] = url.PathEscape(s)
-	}
-	if err := r.http.get(ctx, "/v1/models/"+strings.Join(segments, "/"), nil, &m); err != nil {
-		return nil, err
-	}
-	return &m, nil
+	return &out, nil
 }
